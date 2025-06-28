@@ -1,0 +1,23 @@
+# DepressiVoice-LLM - Python Package Dependencies
+# Core Data Science & ML
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+
+# Audio Processing & Transcription
+librosa
+openai-whisper
+
+# LLM, Transformers & Embeddings
+torch
+transformers
+sentence-transformers
+accelerate
+
+# Utility & Configuration
+PyYAML
+tqdm
+python-dotenv
+
