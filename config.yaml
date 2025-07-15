@@ -19,7 +19,7 @@ audio:
   
 # Model configuration
 model:
-  whisper_model: "large-v3"
+  whisper_model: "base"
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
   
 # Training parameters
