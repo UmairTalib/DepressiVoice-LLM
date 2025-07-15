@@ -192,3 +192,120 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# =============================================================================
+# DATA FILES AND DIRECTORIES - DepressiVoice-LLM Project
+# =============================================================================
+
+# Ignore all data directories and files
+data/
+datasets/
+raw_data/
+processed_data/
+transcribed_data/
+results/
+
+# Audio files
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.aac
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# CSV data files (except small config/example files)
+*.csv
+!example.csv
+!sample.csv
+
+# Excel files
+*.xlsx
+*.xls
+
+# JSON data files (large datasets)
+*_data.json
+*_dataset.json
+
+# Pickle files
+*.pkl
+*.pickle
+
+# HDF5 files
+*.h5
+*.hdf5
+
+# Parquet files
+*.parquet
+
+# NumPy arrays
+*.npy
+*.npz
+
+# Model files and weights
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+models/
+checkpoints/
+weights/
+
+# Transformer model caches
+transformers_cache/
+.cache/transformers/
+.cache/huggingface/
+
+# Whisper model downloads
+*.pt.whisper
+
+# Large output files
+outputs/
+logs/
+*.out
+*.err
+
+# Temporary processing files
+temp/
+tmp/
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files with sensitive data
+.env.local
+.env.production
+secrets.yaml
+credentials.json
+
+# Large text files
+*.txt
+!requirements.txt
+!README.txt
+!LICENSE.txt
+
+# Compressed archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# =============================================================================
+# KEEP ESSENTIAL FILES
+# =============================================================================
+# Force include important configuration and documentation files
+!config.yaml
+!requirements.txt
+!README.md
+!setup.py
+!pyproject.toml
+!.gitignore
+!LICENSE
