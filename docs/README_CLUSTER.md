@@ -13,13 +13,13 @@ On your **LOCAL** computer (Terminal), run these commands:
 
 2.  **Upload the Bundle**:
     ```bash
-    scp depressivoice_cluster_deploy.zip g755389@hpc-login.uni-siegen.de:~/
+    scp depressivoice_cluster_deploy.zip <your_user_id>@hpc-login.uni-siegen.de:~/
     ```
 
 3.  **Upload Your Data**:
     ```bash
     # Upload the folder containing your Participant Audio files
-    scp -r data/01_raw g755389@hpc-login.uni-siegen.de:~/data/
+    scp -r data/01_raw <your_user_id>@hpc-login.uni-siegen.de:~/data/
     ```
 
 ---
@@ -84,7 +84,7 @@ Everything is configured. Now we launch the army.
 
 2.  **Monitor Progress**:
     ```bash
-    squeue -u g755389
+    squeue -u <your_user_id>
     ```
     *(You will see 10 entries running or pending)*
 
@@ -109,7 +109,7 @@ When `squeue` shows NO jobs running (everything finished):
 2.  **Download Results**:
     Back on your **LOCAL** computer:
     ```bash
-    scp g755389@hpc-login.uni-siegen.de:~/data/02_transcribed/transcripts_whisperx_FINAL.csv ./
+    scp <your_user_id>@hpc-login.uni-siegen.de:~/data/02_transcribed/transcripts_whisperx_FINAL.csv ./
     ```
 
 **You are done!** 🎯
