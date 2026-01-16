@@ -14,7 +14,7 @@
 NUM_SHARDS=10
 
 # Hugging Face Token
-export HF_TOKEN="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"
+export HF_TOKEN="<YOUR_HF_TOKEN>"
 export HF_HOME=$(pwd)/.cache
 
 echo "======================================================"

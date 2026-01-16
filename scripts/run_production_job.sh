@@ -10,7 +10,7 @@
 # ==============================================================================
 # 1. Hugging Face Token (REQUIRED for Diarization)
 #    Replace 'hf_...' with your actual token OR ensure .env file exists.
-export HF_TOKEN="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"
+export HF_TOKEN="<YOUR_HF_TOKEN>"
 
 # Ensure cache is in a writable location
 export HF_HOME=$(pwd)/.cache
