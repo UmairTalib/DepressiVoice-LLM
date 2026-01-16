@@ -21,6 +21,13 @@ audio:
 model:
   whisper_model: "large-v3"
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  hf_token: "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"
+
+# Diarization settings
+diarization:
+  enabled: true
+  min_speakers: 1
+  max_speakers: 2
   
 # Training parameters
 training:

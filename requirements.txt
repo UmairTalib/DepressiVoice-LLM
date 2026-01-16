@@ -7,14 +7,21 @@ matplotlib
 seaborn
 
 # Audio Processing & Transcription
+# Audio Processing & Transcription
 librosa
-openai-whisper
+git+https://github.com/m-bain/whisperx.git
+torchaudio
+
 
 # LLM, Transformers & Embeddings
 torch
-transformers
+transformers>=4.36.0
+torchaudio>=2.1.0
 sentence-transformers
 accelerate
+peft
+datasets
+bitsandbytes
 
 # Utility & Configuration
 PyYAML
