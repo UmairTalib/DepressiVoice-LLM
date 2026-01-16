@@ -1,100 +1,115 @@
-# Running DepressiVoice-LLM on Omni Cluster (Uni Siegen)
+# Master Guide: From Blank Cluster to Parallel Analysis
 
-The Omni cluster (and many HPC systems) often does not support Docker directly for security reasons. Instead, they use **Apptainer** (formerly Singularity). 
+This guide assumes your cluster folder is currently **empty**.
 
-This guide explains how to convert the Docker solution to detailed steps for the cluster.
+## 1. Upload Your Files
+On your **LOCAL** computer (Terminal), run these commands:
 
-## 1. Setup on Local Machine (or where Docker is available)
-
-First, you need to build the Docker image and save it, or push it to a registry (like Docker Hub).
-**Option A: Push to Docker Hub (Easiest)**
-1.  Create a Docker Hub account.
-2.  Login: `docker login`
-3.  Build and push:
+1.  **Generate the Code Bundle** (I created a script for this):
     ```bash
-    docker build -t your-username/depressivoice-llm:latest .
-    docker push your-username/depressivoice-llm:latest
+    sh create_cluster_bundle.sh
+    ```
+    *(This creates `depressivoice_cluster_deploy.zip`)*
+
+2.  **Upload the Bundle**:
+    ```bash
+    scp depressivoice_cluster_deploy.zip g755389@hpc-login.uni-siegen.de:~/
     ```
 
-**Option B: Save as SIF file (Advanced)**
-If you have `apptainer` or `singularity` installed locally:
-```bash
-apptainer build depressivoice.sif docker://pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime --sandbox
-# This is complex to do purely locally without linux. Option A is recommended for Mac users.
-```
+3.  **Upload Your Data**:
+    ```bash
+    # Upload the folder containing your Participant Audio files
+    scp -r data/01_raw g755389@hpc-login.uni-siegen.de:~/data/
+    ```
 
-## 2. On Omni Cluster
+---
 
-### 2.1 Pull the Image
-Login to the cluster and pull the image from Docker Hub. Apptainer/Singularity can interpret Docker images.
+## 2. Setup the Cluster (One-Time)
+On the **CLUSTER** terminal (SSH in first):
 
-```bash
-# Load apptainer/singularity module (check exact name with 'module avail')
-module load apptainer
-# OR if your cluster uses the specific singularity module:
-# module load singularity
+1.  **Unzip the Code**:
+    ```bash
+    unzip depressivoice_cluster_deploy.zip
+    ```
 
-# Pull the image - this creates a .sif file
-# You can use 'singularity' instead of 'apptainer' if that is the installed command
-apptainer pull depressivoice.sif docker://umi002/depressivoice-llm:latest
-# OR: singularity pull depressivoice.sif docker://umi002/depressivoice-llm:latest
-```
+2.  **Check Directory Structure**:
+    Your folder should now look like this:
+    ```
+    ~/
+    ├── config.yaml
+    ├── requirements.txt
+    ├── run_parallel.sh
+    ├── src/
+    │   ├── data_processing.py
+    │   └── merge_results.py
+    └── data/
+        └── 01_raw/        <-- Your audio files MUST be here
+    ```
 
-### 2.2 Prepare Data
-Ensure your audio data (`data/01_raw`) and config (`config.yaml`) are available on the cluster storage.
+3.  **Load Python & Create Environment**:
+    ```bash
+    # Load Python
+    module load python/3.11.2
 
-### 2.3 Run with Slurm
-Create a submission script, e.g., `run_job.sh`:
+    # Create Virtual Environment
+    python3 -m venv venv_gpu_test
+    source venv_gpu_test/bin/activate
 
-```bash
-#!/bin/bash
-#SBATCH --job-name=transcribe_audio
-#SBATCH --output=logs/output_%j.txt
-#SBATCH --error=logs/error_%j.txt
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:1           # Request 1 GPU
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
-#SBATCH --time=04:00:00
+    # Upgrade pip (Vital step)
+    pip install --upgrade pip
+    ```
 
-# Load necessary modules
-module load apptainer
+4.  **Install Dependencies** (This uses the cluster's fast internet):
+    ```bash
+    # Install PyTorch (GPU version)
+    pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+    
+    # Install WhisperX
+    pip install git+https://github.com/m-bain/whisperx.git
+    
+    # Install Project Libs
+    pip install -r requirements.txt
+    ```
 
-# Create output directories if they don't exist
-mkdir -p data/02_transcribed logs
+---
 
-# Run the container
-# --nv is crucial! It enables GPU access inside the container
-# --bind mounts your cluster directories into the container
-# Pass HF_TOKEN environment variable for diarization (if needed)
-export HF_TOKEN="your_hugging_face_token_here"
+## 3. Run the Parallel Jobs
+Everything is configured. Now we launch the army.
 
-apptainer run --nv \
-    --env HF_TOKEN=$HF_TOKEN \
-    --bind $(pwd)/data:/app/data \
-    depressivoice.sif python src/data_processing.py
+1.  **Submit the Job**:
+    ```bash
+    sbatch run_parallel.sh
+    ```
+    *This starts 10 jobs. Each job processes 1/10th of your data.*
 
-# OR if using 'singularity' command:
-# singularity run --nv \
-#     --env HF_TOKEN=$HF_TOKEN \
-#     --bind $(pwd)/data:/app/data \
-#     depressivoice.sif python src/data_processing.py
-```
+2.  **Monitor Progress**:
+    ```bash
+    squeue -u g755389
+    ```
+    *(You will see 10 entries running or pending)*
 
-### 2.4 Important: Hugging Face Token for Diarization
-To use **WhisperX Diarization** (Pyannote), you must:
-1.  Have a Hugging Face account.
-2.  Accept user conditions for `pyannote/speaker-diarization-3.1` on Hugging Face.
-3.  Generate an Access Token (Read).
-4.  Either put it in `config.yaml` or export it as `HF_TOKEN` before running the container.
+    **To check logs:**
+    ```bash
+    tail -f logs/parallel_*.log
+    ```
 
+---
 
-### 2.4 Submit Job
-```bash
-sbatch run_job.sh
-```
+## 4. Final step: Merge Results
+When `squeue` shows NO jobs running (everything finished):
 
-## Troubleshooting
-- **Libraries**: If you run into "library not found" errors, the Dockerfile ensures `ffmpeg` and others are inside the image, isolated from the cluster's old libraries.
-- **CUDA**: The `--nv` flag is essential for Apptainer to pass the host GPU drivers to the container.
-- **Paths**: Ensure `config.yaml` points to `/app/data/...` or relative paths that match the valid structure inside the container.
+1.  **Combine the chunks**:
+    ```bash
+    # Make sure env is active
+    source venv_gpu_test/bin/activate
+    
+    python src/merge_results.py
+    ```
+
+2.  **Download Results**:
+    Back on your **LOCAL** computer:
+    ```bash
+    scp g755389@hpc-login.uni-siegen.de:~/data/02_transcribed/transcripts_whisperx_FINAL.csv ./
+    ```
+
+**You are done!** 🎯
