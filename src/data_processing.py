@@ -44,6 +44,10 @@ import whisperx
 import gc
 import librosa
 from tqdm import tqdm
+import numpy as np
+import json
+from scipy.spatial.distance import cosine
+from pyannote.audio import Inference
 
 # Fix for DiarizationPipeline attribute error
 try:
@@ -159,7 +163,8 @@ def load_dataset_manifest(config_path: str = "config.yaml") -> Optional[pd.DataF
         return None
 
 
-def run_transcription(config: Dict[str, Any], manifest_df: pd.DataFrame, file_suffix: str = "") -> Optional[pd.DataFrame]:
+
+def run_transcription(config: Dict[str, Any], manifest_df: pd.DataFrame, file_suffix: str = "", anchor_path: str = None) -> Optional[pd.DataFrame]:
     """
     Transcribe all audio files using Whisper with CUDA acceleration.
     Optimized for Omni cluster at Uni Siegen.
@@ -226,6 +231,21 @@ def run_transcription(config: Dict[str, Any], manifest_df: pd.DataFrame, file_su
 
     print("INFO: Starting WhisperX transcription process...")
 
+    # Load Embedding Model if Anchor is present
+    embedding_model = None
+    anchor_embedding = None
+    if anchor_path and os.path.exists(anchor_path):
+        try:
+            print(f"INFO: Loading Speaker Anchor from {anchor_path}")
+            anchor_embedding = np.load(anchor_path)
+            if hf_token:
+                print("INFO: Loading Embedding Model for Biometric ID...")
+                # Use the standard model compatible with pyannote 3.1
+                embedding_model = Inference("pyannote/wespeaker-voxceleb-resnet34-LM", use_auth_token=hf_token)
+                embedding_model.to(torch.device(device_str))
+        except Exception as e:
+            print(f"WARNING: Failed to load Biometric ID components: {e}")
+
     # Process each audio file
     for index, row in tqdm(manifest_df.iterrows(), total=len(manifest_df), desc="Processing"):
         participant_id = row['Participant_ID']
@@ -265,6 +285,110 @@ def run_transcription(config: Dict[str, Any], manifest_df: pd.DataFrame, file_su
                 except Exception as e:
                     print(f"WARNING: Diarization failed for {participant_id}: {e}")
 
+            # --- BIOMETRIC SPEAKER IDENTIFICATION ---
+            biometric_data = {} # To support logging/validation
+            if embedding_model is not None and anchor_embedding is not None and 'segments' in result:
+                try:
+                    # Collect segments per speaker
+                    spk_segments = {}
+                    for seg in result['segments']:
+                        spk = seg.get('speaker')
+                        if spk:
+                            if spk not in spk_segments: spk_segments[spk] = []
+                            spk_segments[spk].append(seg)
+                    
+                    if spk_segments:
+                        # Determine which speaker is Interviewer (Ellie)
+                        best_sim = -1.0
+                        interviewer_spk = None
+                        
+                        speaker_details = {}
+
+                        for spk, segs in spk_segments.items():
+                            # Extract audio for top 3 longest segments to get a robust profile
+                            sorted_segs = sorted(segs, key=lambda x: x['end']-x['start'], reverse=True)[:3]
+                            embeddings_list = []
+                            
+                            for s in sorted_segs:
+                                # Extract audio crop (WhisperX audio is at 16k)
+                                start_sample = int(s['start'] * 16000)
+                                end_sample = int(s['end'] * 16000)
+                                
+                                # Safety check
+                                if end_sample > len(audio): end_sample = len(audio)
+                                if start_sample >= end_sample: continue
+
+                                crop = audio[start_sample:end_sample]
+                                
+                                # Inference expects tensor (channels, time)
+                                # whisperx audio is numpy array (time,)
+                                tensor = torch.from_numpy(crop).float()
+                                if tensor.ndim == 1: 
+                                    tensor = tensor.unsqueeze(0) # (1, time)
+                                
+                                # Run inference
+                                try:
+                                    emb = embedding_model({"waveform": tensor, "sample_rate": 16000})
+                                    embeddings_list.append(emb)
+                                except Exception as emb_err:
+                                    pass # skip bad segment
+                            
+                            if embeddings_list:
+                                # Average embeddings
+                                avg_emb = np.mean(embeddings_list, axis=0)
+                                if avg_emb.ndim > 1: avg_emb = np.mean(avg_emb, axis=0)
+                                
+                                # Cosine Similarity (1 - cosine distance)
+                                sim = 1 - cosine(avg_emb, anchor_embedding)
+                                speaker_details[spk] = sim
+                                
+                                if sim > best_sim:
+                                    best_sim = sim
+                                    interviewer_spk = spk
+                        
+                        print(f"INFO: Biometric Scores: {speaker_details}")
+                        print(f"INFO: Biometric Scores: {speaker_details}")
+                        print(f"INFO: Identified Interviewer (Ellie) as: {interviewer_spk} (Score: {best_sim:.4f})")
+                        
+                        # Save Validation Data
+                        biometric_data = {
+                            "participant_id": participant_id,
+                            "scores": speaker_details,
+                            "interviewer_identified": interviewer_spk,
+                            "interviewer_score": best_sim,
+                            "margin": 0.0
+                        }
+                        
+                        # Calculate Margin (Delta)
+                        sorted_scores = sorted(speaker_details.values(), reverse=True)
+                        if len(sorted_scores) >= 2:
+                            biometric_data["margin"] = float(sorted_scores[0] - sorted_scores[1])
+                        
+                        # Save to sidecar JSON
+                        try:
+                           bio_json_path = os.path.join(config['paths']['transcribed_data'], f"{participant_id}_biometrics.json")
+                           os.makedirs(os.path.dirname(bio_json_path), exist_ok=True)
+                           with open(bio_json_path, 'w') as f:
+                               # Convert numpy floats to python floats for JSON
+                               json_ready = {k: float(v) if isinstance(v, (np.float32, np.float64)) else v for k, v in biometric_data.items()}
+                               # Handle the nested scores dict too
+                               if 'scores' in json_ready:
+                                   json_ready['scores'] = {k: float(v) for k, v in speaker_details.items()}
+                               json.dump(json_ready, f, indent=2)
+                        except Exception as e:
+                            print(f"WARNING: Failed to save biometric JSON: {e}")
+
+                        # Assign Role to Segments
+                        for seg in result['segments']:
+                            if 'speaker' in seg:
+                                spk = seg['speaker']
+                                if spk == interviewer_spk:
+                                    seg['speaker_role'] = 'Interviewer'
+                                else:
+                                    seg['speaker_role'] = 'Patient'
+                except Exception as e:
+                    print(f"WARNING: Biometric ID failed for {participant_id}: {e}")
+
             # Collect segments
             if 'segments' in result and result['segments']:
                 for segment in result['segments']:
@@ -300,6 +424,7 @@ def run_transcription(config: Dict[str, Any], manifest_df: pd.DataFrame, file_su
                         'end_time': segment['end'],
                         'transcript': segment['text'].strip(),
                         'speaker': speaker,
+                        'speaker_role': segment.get('speaker_role', 'Unknown'), # Biometric Label
                         'confidence': round(confidence, 4),
                         'language': result.get('language', 'en') # Default to 'en' since we forced it
                     })
@@ -351,6 +476,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="DepressiVoice-LLM Transcription")
     parser.add_argument("--shard-index", type=int, default=0, help="Index of current shard (0-based)")
     parser.add_argument("--num-shards", type=int, default=1, help="Total number of shards")
+    parser.add_argument("--anchor-path", default=None, help="Path to speaker anchor .npy file")
     args = parser.parse_args()
 
     config_path = "config.yaml"
@@ -394,7 +520,9 @@ def main() -> None:
     # Run CUDA-accelerated transcription
     # We need to modify run_transcription signature slightly or append to output path inside it?
     # Let's modify run_transcription to take an optional suffix
-    result_df = run_transcription(config, manifest_df, file_suffix=f"_part_{args.shard_index}" if args.num_shards > 1 else "")
+    # Run transcription
+    suffix = f"_part_{args.shard_index}" if args.num_shards > 1 else ""
+    result_df = run_transcription(config, manifest_df, file_suffix=suffix, anchor_path=args.anchor_path)
     
     if result_df is None:
         print("ERROR: Transcription failed. Exiting.")

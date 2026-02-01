@@ -1,0 +1,23 @@
+{
+  "total_sessions_scanned": 275,
+  "contaminated_sessions": 39,
+  "contamination_rate_percent": 14.181818181818182,
+  "top_matched_phrases": [
+    [
+      "tell me about",
+      117
+    ],
+    [
+      "what do you mean",
+      9
+    ],
+    [
+      "i'm interested in",
+      6
+    ],
+    [
+      "hi i'm ellie",
+      1
+    ]
+  ]
+}

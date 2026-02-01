@@ -27,4 +27,6 @@ bitsandbytes
 PyYAML
 tqdm
 python-dotenv
+scipy>=1.9.0
+pyannote.audio>=3.1.0
 

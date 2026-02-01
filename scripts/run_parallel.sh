@@ -38,7 +38,8 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/venv_gpu_test/lib/python3.11/site
 # Run the Python script with Sharding arguments
 python src/data_processing.py \
     --shard-index $SLURM_ARRAY_TASK_ID \
-    --num-shards $NUM_SHARDS
+    --num-shards $NUM_SHARDS \
+    --anchor-path data/ellie_anchor.npy
 
 echo "======================================================"
 echo "Shard Complete."

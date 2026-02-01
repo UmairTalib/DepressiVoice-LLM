@@ -16,14 +16,14 @@ echo "Creating deployment package: $ZIP_NAME"
 
 
 zip -r $ZIP_NAME \
-    src/ \
+    scripts/submit_extraction.sb \
+    scripts/run_production_job.sh \
+    scripts/run_setup.sh \
+    scripts/run_anchor.sb \
+    scripts/run_parallel.sh \
     config.yaml \
     requirements.txt \
-    run_parallel.sh \
-    run_features_parallel.sh \
-    run_setup.sh \
-    run_test_model.sh \
-    README_DIRECT_INSTALL.md \
+    data/session_ids.txt \
     -x "src/__pycache__/*" \
     -x "*.DS_Store"
 
