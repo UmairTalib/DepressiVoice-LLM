@@ -30,3 +30,9 @@ python-dotenv
 scipy>=1.9.0
 pyannote.audio>=3.1.0
 
+# Validations & Reporting
+reportlab
+python-Levenshtein
+
+# Phase 1 Transcription
+faster-whisper
