@@ -2,7 +2,7 @@
 # scripts/cluster_cleanup_phase1.sh
 # Run this ON THE CLUSTER to clean up after Phase 1
 
-BASE_DIR="/home/g755389/depressivoice_phase2_outputs"
+BASE_DIR="/home/g755389/DepressiVoice-LLM"
 
 echo "=== Phase 1 Cluster Cleanup ==="
 

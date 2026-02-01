@@ -1,35 +1,27 @@
 #!/bin/bash
+# scripts/deploy_cluster.sh
+# Deploys the current codebase to the Omni Cluster for Phase 2
 
-# Configuration
 CLUSTER_USER="g755389"
 CLUSTER_HOST="omni.zimt.uni-siegen.de"
-REMOTE_PATH="~/"  # Deploy to home directory
+REMOTE_BASE="/home/g755389/DepressiVoice-LLM"
 
-echo "================================================="
-echo "Deploying to $CLUSTER_USER@$CLUSTER_HOST"
-echo "================================================="
+echo "=== Deploying Code to Cluster ==="
 
-# 1. Clean up old files (Preserve DATA input and VENV)
-echo "[1/4] Cleaning up remote files..."
-# Remove old code, temp zips, and PARTIAL output features to ensure a clean run
-ssh $CLUSTER_USER@$CLUSTER_HOST "rm -rf src scripts config.yaml requirements.txt logs *.zip data/session_ids.txt DepressiVoice-LLM/data/03_features/*.pt"
-# Explicitly delete the zip if it's stuck
-ssh $CLUSTER_USER@$CLUSTER_HOST "rm -f depressivoice_cluster_deploy.zip"
+# 1. Zip the src folder
+echo "📦 Packaging source code..."
+zip -q -r depressivoice_cluster_deploy.zip src config.yaml requirements.txt setup_project.sh
 
-# 2. CREATE BUNDLE (Ensure we have the latest)
-echo "[2/4] Creating local deployment package..."
-./scripts/create_cluster_bundle.sh > /dev/null
+# 2. Upload
+echo "⬆️ Uploading deployment bundle..."
+scp depressivoice_cluster_deploy.zip $CLUSTER_USER@$CLUSTER_HOST:$REMOTE_BASE/
 
-# 3. UPLOAD
-echo "[3/4] Uploading new deployment package..."
-scp depressivoice_cluster_deploy.zip $CLUSTER_USER@$CLUSTER_HOST:$REMOTE_PATH
+# 3. Unzip on Cluster
+echo "📂 Unpacking on remote..."
+ssh $CLUSTER_USER@$CLUSTER_HOST "cd $REMOTE_BASE && unzip -o -q depressivoice_cluster_deploy.zip && rm depressivoice_cluster_deploy.zip"
 
-# 4. EXTRACT & SETUP
-echo "[4/4] Extracting and setting up on cluster..."
-ssh $CLUSTER_USER@$CLUSTER_HOST "unzip -o -q depressivoice_cluster_deploy.zip && chmod +x scripts/*.sb scripts/*.sh && echo 'Deployment Complete!'"
+# 4. Clean up local
+rm depressivoice_cluster_deploy.zip
 
-echo "================================================="
-echo "Ready! Log in and run:"
-echo "ssh $CLUSTER_USER@$CLUSTER_HOST"
-echo "sbatch scripts/submit_extraction.sb"
-echo "================================================="
+echo "✅ Deployment Complete!"
+echo "   Remote: $REMOTE_BASE/src"

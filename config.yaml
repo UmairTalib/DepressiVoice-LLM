@@ -1,37 +1,27 @@
-# DepressiVoice-LLM Project Configuration
-# This file centralizes project paths and parameters
+# DepressiVoice-LLM Phase 2 Configuration
+# Status: Phase 2 (Multimodal Modeling)
 
-# Project paths
 paths:
-  raw_data: "data/01_raw/"
-  transcribed_data: "data/02_transcribed/"
-  processed_data: "data/03_processed/"
-  results: "data/04_results/"
+  # Local paths (Synced from Cluster)
+  phase1_metadata: "data/processed/phase1/session_outputs"
+  reports: "data/processed/phase1/final_lock_bundle"
+  
+  # Remote Cluster paths (For large audio training)
+  cluster_audio_root: "/home/g755389/DepressiVoice-LLM/session_outputs"
 
-# Data processing parameters
-data_processing:
-  manifest_filename: "metadata_mapped.csv"
-  
-# Audio processing settings
-audio:
-  sample_rate: 16000
-  format: "wav"
-  
-# Model configuration
 model:
-  whisper_model: "large-v3"
-  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
-  hf_token: "<YOUR_HF_TOKEN>"
-
-# Diarization settings
-diarization:
-  enabled: true
-  min_speakers: 1
-  max_speakers: 2
+  text_encoder: "mental/mental-roberta-base"
+  audio_encoder: "microsoft/wavlm-large"
+  audio_layer_indices: [6, 7, 8, 9, 10, 11, 12] # Middle layers for prosody
+  fusion_type: "cross_attention"
   
-# Training parameters
 training:
-  batch_size: 32
-  learning_rate: 0.001
-  epochs: 100
-  validation_split: 0.2
+  batch_size: 16
+  learning_rate: 2.0e-5
+  max_epochs: 20
+  gradient_accumulation: 4
+  num_workers: 4
+  seed: 42
+
+validations:
+  purity_threshold: 0.5 # Strictness for any new data

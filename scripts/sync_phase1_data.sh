@@ -5,7 +5,7 @@
 
 CLUSTER_USER="g755389"
 CLUSTER_HOST="omni.zimt.uni-siegen.de"
-REMOTE_BASE="/home/g755389/depressivoice_phase2_outputs"
+REMOTE_BASE="/home/g755389/DepressiVoice-LLM"
 LOCAL_DATA_DIR="data/phase1_outputs"
 
 mkdir -p "$LOCAL_DATA_DIR"
