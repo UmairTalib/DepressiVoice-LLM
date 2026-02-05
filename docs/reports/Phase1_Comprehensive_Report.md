@@ -272,7 +272,7 @@ pip install pyannote.audio faster-whisper soundfile
 
 ### Confidence Distribution
 
-![Confidence Distribution](../validation/figures/confidence_distribution.png)
+![Confidence Distribution](confidence_distribution.png)
 
 | Level | Count | % |
 |-------|-------|---|
@@ -284,7 +284,7 @@ pip install pyannote.audio faster-whisper soundfile
 
 ### Separation Margin
 
-![Margin Histogram](../validation/figures/margin_histogram.png)
+![Margin Histogram](margin_histogram.png)
 
 - **Mean:** 0.239
 - **Median:** 0.223
@@ -293,7 +293,7 @@ pip install pyannote.audio faster-whisper soundfile
 
 ### Contamination
 
-![Contamination Histogram](../validation/figures/contamination_histogram.png)
+![Contamination Histogram](contamination_histogram.png)
 
 - **Mean:** 1.71%
 - **Median:** 0.00%
@@ -302,7 +302,7 @@ pip install pyannote.audio faster-whisper soundfile
 
 ### Audio Duration
 
-![Duration Box Plot](../validation/figures/duration_boxplot.png)
+![Duration Box Plot](duration_boxplot.png)
 
 - **Mean:** 7.4 minutes
 - **Median:** 7.1 minutes
@@ -310,7 +310,7 @@ pip install pyannote.audio faster-whisper soundfile
 
 ### Quality Flags
 
-![Quality Flags](../validation/figures/quality_flags_breakdown.png)
+![Quality Flags](quality_flags_breakdown.png)
 
 - All 36 LOW/VERY_LOW sessions flagged
 - 1 rescue session (309) flagged
