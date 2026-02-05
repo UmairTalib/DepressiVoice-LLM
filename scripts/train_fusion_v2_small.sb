@@ -1,0 +1,41 @@
+#!/bin/bash
+#SBATCH --job-name=fusion_v2_small
+#SBATCH --output=experiments/fusion_v2_small/slurm_%j.out
+#SBATCH --error=experiments/fusion_v2_small/slurm_%j.err
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --time=04:00:00
+
+# Create experiment directory
+mkdir -p experiments/fusion_v2_small/
+
+# Load environment logic
+module load miniconda3/4.9.2
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null || source $CONDA_PREFIX/etc/profile.d/conda.sh 2>/dev/null
+conda activate depressivoice-phase1
+
+# Environment Variables
+export HF_TOKEN="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"
+export TORCHAUDIO_BACKEND="soundfile"
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+
+echo "🚀 Starting Phase 3 Fusion Training: fusion_v2_small"
+echo "📅 Date: $(date)"
+echo "🖥️ Node: $SLURMD_NODENAME"
+
+# Conservative configuration to avoid OOM
+python src/phase3_fusion/train.py \
+    --epochs 50 \
+    --batch_size 8 \
+    --lr 1e-4 \
+    --weight_decay 0.05 \
+    --d_model 128 \
+    --max_audio_len 3000 \
+    --max_text_len 500 \
+    --output_dir experiments/fusion_v2_small/
+
+echo "✅ Training Job Complete."

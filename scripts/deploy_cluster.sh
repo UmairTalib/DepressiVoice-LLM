@@ -8,9 +8,9 @@ REMOTE_BASE="/home/g755389/DepressiVoice-LLM"
 
 echo "=== Deploying Code to Cluster ==="
 
-# 1. Zip the src folder
+# 1. Zip the necessary folders
 echo "📦 Packaging source code..."
-zip -q -r depressivoice_cluster_deploy.zip src config.yaml requirements.txt setup_project.sh
+zip -q -r depressivoice_cluster_deploy.zip src cluster_scripts config.yaml requirements.txt setup_project.sh
 
 # 2. Upload
 echo "⬆️ Uploading deployment bundle..."

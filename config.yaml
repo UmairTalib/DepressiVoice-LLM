@@ -8,6 +8,9 @@ paths:
   
   # Remote Cluster paths (For large audio training)
   cluster_audio_root: "/home/g755389/DepressiVoice-LLM/session_outputs"
+  
+data_processing:
+  metadata_filename: "cleaned_transcript.json" # V3 Repaired Metadata
 
 model:
   text_encoder: "mental/mental-roberta-base"

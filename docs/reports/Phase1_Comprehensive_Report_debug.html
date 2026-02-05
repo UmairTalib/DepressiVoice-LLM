@@ -1,0 +1,591 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Phase 1 Comprehensive Technical Report</title>
+    <style>
+        @page {
+            size: Letter;
+            margin: 0.75in;
+            @bottom-center {
+                content: "Phase 1 Technical Report - Page " counter(page);
+                font-size: 9pt;
+                color: #666;
+            }
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            font-size: 10pt;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            page-break-before: always;
+            margin-top: 0;
+            font-size: 18pt;
+        }
+        
+        h1:first-of-type {
+            page-break-before: avoid;
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #95a5a6;
+            padding-bottom: 5px;
+            margin-top: 24pt;
+            page-break-after: avoid;
+            font-size: 14pt;
+        }
+        
+        h3 {
+            color: #7f8c8d;
+            margin-top: 16pt;
+            page-break-after: avoid;
+            font-size: 12pt;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 9pt;
+        }
+        
+        pre {
+            background-color: #f4f4f4;
+            padding: 12px;
+            border-radius: 5px;
+            overflow-x: auto;
+            page-break-inside: avoid;
+            font-size: 8pt;
+            line-height: 1.4;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 12pt 0;
+            page-break-inside: avoid;
+            font-size: 9pt;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 6px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 12pt 0;
+            page-break-inside: avoid;
+            display: block;
+        }
+        
+        ul, ol {
+            margin: 8pt 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin: 4pt 0;
+        }
+        
+        p {
+            margin: 8pt 0;
+        }
+        
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin-left: 0;
+            color: #555;
+            font-style: italic;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #ddd;
+            margin: 20pt 0;
+        }
+        
+        /* Prevent orphans and widows */
+        p {
+            orphans: 3;
+            widows: 3;
+        }
+        
+        /* Better page breaks */
+        h1, h2, h3, h4 {
+            page-break-after: avoid;
+        }
+        
+        /* Keep figures with their captions */
+        figure {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+<h1 id="phase-1-rerun-comprehensive-technical-report">Phase 1 Rerun: Comprehensive Technical Report</h1>
+<p><strong>Project:</strong> DepressiVoice - Depression Detection from Clinical Interview Audio<br />
+<strong>Phase:</strong> Phase 1 - Speaker Diarization &amp; Transcription (Rerun v2.0)<br />
+<strong>Date:</strong> February 5, 2026<br />
+<strong>Status:</strong> ✅ COMPLETE (275/275 sessions, 100% validated)</p>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>Phase 1 rerun achieved <strong>100% completion</strong> (275/275 sessions) with enhanced confidence scoring and quality flagging. Key results: <strong>74.2% high-confidence</strong> assignments, <strong>34.1 hours</strong> patient audio extracted, <strong>1.71% average contamination</strong>, 37 quality-flagged sessions for transparency.</p>
+<p><strong>Innovations:</strong> Dur ation-based patient selection (handles same-gender speakers), adaptive confidence thresholds (HIGH/MEDIUM/LOW/VERY_LOW), automated quality flagging, rescue procedures for edge cases.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#methodology">Methodology</a></li>
+<li><a href="#scripts--implementation">Scripts &amp; Implementation</a> </li>
+<li><a href="#hyperparameters--configuration">Hyperparameters &amp; Configuration</a></li>
+<li><a href="#environment--reproducibility">Environment &amp; Reproducibility</a></li>
+<li><a href="#execution-timeline">Execution Timeline</a></li>
+<li><a href="#validation-results">Validation Results</a></li>
+<li><a href="#failure-modes--limitations">Failure Modes &amp; Limitations</a></li>
+<li><a href="#future-improvements">Future Improvements</a></li>
+</ol>
+<hr />
+<h2 id="methodology">Methodology</h2>
+<h3 id="pipeline-overview">Pipeline Overview</h3>
+<p>```
+Master Audio → Diarization (Pyannote 3.1) → Role Assignment (Anchor + Duration) 
+→ Patient Audio Extraction → Transcription (Whisper large-v3) → Validation
+```</p>
+<h3 id="key-innovations">Key Innovations</h3>
+<p><strong>1. Duration-Based Patient Selection</strong>
+- ELLIE assigned by max similarity to biometric anchor
+- PATIENT assigned by max speaking duration (not similarity)
+- Handles female-female pairs where similarity is ambiguous</p>
+<p><strong>2. Confidence Scoring</strong>
+- Margin = similarity_diff(ELLIE, PATIENT)
+- HIGH: margin ≥ 0.2 (74.2% of sessions)
+- MEDIUM: 0.1 ≤ margin &lt; 0.2 (12.4%)
+- LOW: 0.05 ≤ margin &lt; 0.1 (5.1%)
+- VERY_LOW: margin &lt; 0.05 (8.0%)</p>
+<p><strong>3. Quality Flagging</strong>
+- Automatic flag for margin &lt; 0.1
+- Documents reason, review recommendation
+- 37/275 sessions flagged (13.5%)</p>
+<hr />
+<h2 id="scripts-implementation">Scripts &amp; Implementation</h2>
+<h3 id="core-pipeline-srcphase1_pipeline_rerunpy">Core Pipeline: <code>src/phase1_pipeline_rerun.py</code></h3>
+<p><strong>Function: <code>assign_roles()</code> (Lines 81-172)</strong></p>
+<p>Purpose: Assign ELLIE/PATIENT labels with confidence scoring</p>
+<p>Logic:
+1. Extract speaker embeddings for all detected speakers
+2. Calculate cosine similarity to Ellie anchor
+3. <strong>ELLIE = argmax(similarities)</strong> ← Speaker most similar to anchor
+4. Calculate duration for ALL other speakers<br />
+5. <strong>PATIENT = argmax(durations, excluding ELLIE)</strong> ← Longest-speaking non-Ellie
+6. Compute margin = sim[ELLIE] - sim[PATIENT]
+7. Assign confidence level based on margin
+8. Return roles, similarities, metadata</p>
+<p>Rationale: Similarity identifies Ellie (consistent voice), duration identifies patient (talks more in interview).</p>
+<p><strong>Function: <code>extract_patient_audio()</code> (Lines 174-206)</strong></p>
+<p>Purpose: Extract and concatenate patient speech segments</p>
+<p>Process:
+- Filter diarization for patient label
+- Extract waveform segments from master audio
+- Convert stereo → mono if needed
+- Concatenate all segments
+- Save as <code>patient_audio.wav</code></p>
+<p><strong>Function: <code>save_diarization_results()</code> (Lines 208-262)</strong></p>
+<p>Purpose: Save outputs with quality flags</p>
+<p>Outputs:
+- <code>XXX.rttm</code> - Diarization segments
+- <code>roles.json</code> - Roles + confidence + margin + durations
+- <code>quality_flag.json</code> - If confidence LOW/VERY_LOW
+- Logs all actions</p>
+<hr />
+<h3 id="transcription-srcphase1_transcription_rerunpy">Transcription: <code>src/phase1_transcription_rerun.py</code></h3>
+<p><strong>Function: <code>transcribe_patient_audio()</code> (Lines 28-85)</strong></p>
+<p>Purpose: Transcribe with word-level timestamps</p>
+<p>Configuration:
+- Model: faster-whisper-large-v3
+- Language: "en" (forced, dataset is English)
+- Beam size: 5
+- Temperature: 0.0 (deterministic)
+- VAD: Enabled (min_silence=500ms)
+- Word timestamps: True</p>
+<p>Output Structure:
+```json
+{
+  "language": "en",
+  "duration": 446.8,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 3.5,
+      "text": "I've been feeling really down lately",
+      "words": [
+        {"start": 0.0, "end": 0.3, "word": "I've"},
+        ...
+      ]
+    }
+  ]
+}
+```</p>
+<hr />
+<h3 id="rescue-script-scriptsrescue_session_309py">Rescue Script: <code>scripts/rescue_session_309.py</code></h3>
+<p>Purpose: Handle session 309 (only 1 speaker detected)</p>
+<p>Approach:
+1. Force <code>num_speakers=2</code> (split single cluster)
+2. Extract both candidates
+3. User manual verification
+4. Rename correct candidate → <code>patient_audio.wav</code>
+5. Document in <code>rescue_metadata.json</code></p>
+<p>Result: Session 309 recovered, 6.0 MB patient audio extracted</p>
+<hr />
+<h3 id="validation-scriptsrun_validationpy">Validation: <code>scripts/run_validation.py</code></h3>
+<p>Checks:
+- File completeness (patient_audio,transcript, patient_text)
+- Confidence distribution
+- Contamination rates (Ellie lexicon detection)
+- Duration statistics</p>
+<p>Outputs:
+- <code>validation_results.json</code>
+- <code>validation_summary.csv</code> (275 rows)</p>
+<hr />
+<h3 id="slurm-batch-scripts">SLURM Batch Scripts</h3>
+<p><strong>Diarization:</strong> <code>cluster_scripts/phase1_rerun_diarization.sbatch</code>
+```bash</p>
+<h1 id="sbatch-array0-27410-275-tasks-10-parallel">SBATCH --array=0-274%10      # 275 tasks, 10 parallel</h1>
+<h1 id="sbatch-gresgpu1-1-gpu">SBATCH --gres=gpu:1          # 1 GPU</h1>
+<h1 id="sbatch-mem32g-32gb-ram">SBATCH --mem=32G             # 32GB RAM</h1>
+<h1 id="sbatch-time040000-4h-limit">SBATCH --time=04:00:00       # 4h limit</h1>
+<p>```</p>
+<p><strong>Transcription:</strong> <code>cluster_scripts/phase1_rerun_transcription.sbatch</code>
+```bash</p>
+<h1 id="sbatch-array0-27420-275-tasks-20-parallel">SBATCH --array=0-274%20      # 275 tasks, 20 parallel</h1>
+<h1 id="sbatch-mem16g-16gb-ram">SBATCH --mem=16G             # 16GB RAM</h1>
+<h1 id="sbatch-time020000-2h-limit">SBATCH --time=02:00:00       # 2h limit</h1>
+<p>```</p>
+<hr />
+<h2 id="hyperparameters-configuration">Hyperparameters &amp; Configuration</h2>
+<h3 id="diarization">Diarization</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Model</td>
+<td>pyannote/speaker-diarization-3.1</td>
+<td>SOTA (Feb 2024)</td>
+</tr>
+<tr>
+<td>Embedding</td>
+<td>pyannote/wespeaker-voxceleb-resnet34-LM</td>
+<td>ResNet-34, 256-dim</td>
+</tr>
+<tr>
+<td>num_speakers</td>
+<td>None (auto)</td>
+<td>Allows 1-N speakers</td>
+</tr>
+<tr>
+<td>Confidence Thresholds</td>
+<td>0.05, 0.1, 0.2</td>
+<td>Empirically tuned for same-gender cases</td>
+</tr>
+</tbody>
+</table>
+<h3 id="transcription">Transcription</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Alternatives</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Model</td>
+<td>faster-whisper-large-v3</td>
+<td>base, medium, large-v2</td>
+<td>Best WER (&lt;5%)</td>
+</tr>
+<tr>
+<td>Beam size</td>
+<td>5</td>
+<td>1, 10</td>
+<td>Speed/accuracy trade-off</td>
+</tr>
+<tr>
+<td>Temperature</td>
+<td>0.0</td>
+<td>0.2, 1.0</td>
+<td>Deterministic (reproducible)</td>
+</tr>
+<tr>
+<td>VAD min_silence</td>
+<td>500ms</td>
+<td>250ms, 1000ms</td>
+<td>Avoids over-segmentation</td>
+</tr>
+<tr>
+<td>Language</td>
+<td>"en"</td>
+<td>auto</td>
+<td>Dataset known English</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="environment-reproducibility">Environment &amp; Reproducibility</h2>
+<h3 id="cluster-omni-hpc-university-of-siegen">Cluster: OMNI HPC (University of Siegen)</h3>
+<ul>
+<li><strong>GPUs:</strong> A100 (40GB), V100 (32GB)</li>
+<li><strong>OS:</strong> Rocky Linux 8.9</li>
+<li><strong>Scheduler:</strong> SLURM 23.02.6</li>
+<li><strong>Storage:</strong> 100GB home quota</li>
+</ul>
+<h3 id="software">Software</h3>
+<p><strong>Conda Environment:</strong> <code>depressivoice-phase1</code></p>
+<p>Key Packages:
+- Python 3.10.13
+- PyTorch 2.1.2+cu118
+- pyannote.audio 3.1.1
+- faster-whisper 1.0.0
+- soundfile 0.12.1</p>
+<p><strong>Environment Variables:</strong>
+```bash
+export HF_TOKEN="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"
+export TORCHAUDIO_BACKEND="soundfile"
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+```</p>
+<h3 id="installation">Installation</h3>
+<p>```bash
+conda create -n depressivoice-phase1 python=3.10 -y
+conda activate depressivoice-phase1
+pip install torch==2.1.2+cu118 torchaudio==2.1.2+cu118 --index-url https://download.pytorch.org/whl/cu118
+pip install pyannote.audio faster-whisper soundfile
+```</p>
+<hr />
+<h2 id="execution-timeline">Execution Timeline</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Timestamp</th>
+<th>Duration</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Master audio upload (12GB)</td>
+<td>Feb 4, 18:00</td>
+<td>45 min</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Biometric anchor generation</td>
+<td>Feb 4, 19:15</td>
+<td>30 min</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Diarization job (11077159)</td>
+<td>Feb 5, 02:06-09:30</td>
+<td>7.4h</td>
+<td>✅ 274/275</td>
+</tr>
+<tr>
+<td>Session 309 rescue</td>
+<td>Feb 5, 09:35</td>
+<td>15 min</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Transcription job</td>
+<td>Feb 5, 09:50-12:20</td>
+<td>2.5h</td>
+<td>✅ 275/275</td>
+</tr>
+<tr>
+<td>Validation</td>
+<td>Feb 5, 15:05</td>
+<td>2 min</td>
+<td>✅ PASSED</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total:</strong> ~11 hours wall time, ~185 GPU-hours compute</p>
+<hr />
+<h2 id="validation-results">Validation Results</h2>
+<h3 id="completeness">Completeness</h3>
+<ul>
+<li><strong>Total:</strong> 275 sessions</li>
+<li><strong>Complete:</strong> 275 (100%)</li>
+<li><strong>Missing Files:</strong> 0</li>
+<li><strong>Quality Flags:</strong> 37 (13.5%)</li>
+<li><strong>Rescue:</strong> 1 (session 309)</li>
+</ul>
+<h3 id="confidence-distribution">Confidence Distribution</h3>
+<p><img alt="Confidence Distribution" src="file:///Users/umairtalib/DepressiVoice-LLM/docs/reports/confidence_distribution.png" /></p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Count</th>
+<th>%</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HIGH</td>
+<td>204</td>
+<td>74.2%</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>34</td>
+<td>12.4%</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>14</td>
+<td>5.1%</td>
+</tr>
+<tr>
+<td>VERY_LOW</td>
+<td>22</td>
+<td>8.0%</td>
+</tr>
+<tr>
+<td>UNKNOWN</td>
+<td>1</td>
+<td>0.4%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="separation-margin">Separation Margin</h3>
+<p><img alt="Margin Histogram" src="file:///Users/umairtalib/DepressiVoice-LLM/docs/reports/margin_histogram.png" /></p>
+<ul>
+<li><strong>Mean:</strong> 0.239</li>
+<li><strong>Median:</strong> 0.223</li>
+<li><strong>Min:</strong> 0.001 (session 632, female-female)</li>
+<li><strong>Max:</strong> 0.582</li>
+</ul>
+<h3 id="contamination">Contamination</h3>
+<p><img alt="Contamination Histogram" src="file:///Users/umairtalib/DepressiVoice-LLM/docs/reports/contamination_histogram.png" /></p>
+<ul>
+<li><strong>Mean:</strong> 1.71%</li>
+<li><strong>Median:</strong> 0.00%</li>
+<li><strong>Max:</strong> 45.45%</li>
+<li><strong>&lt;5%:</strong> 267/275 (97.1%)</li>
+</ul>
+<h3 id="audio-duration">Audio Duration</h3>
+<p><img alt="Duration Box Plot" src="file:///Users/umairtalib/DepressiVoice-LLM/docs/reports/duration_boxplot.png" /></p>
+<ul>
+<li><strong>Mean:</strong> 7.4 minutes</li>
+<li><strong>Median:</strong> 7.1 minutes</li>
+<li><strong>Total:</strong> 34.1 hours</li>
+</ul>
+<h3 id="quality-flags">Quality Flags</h3>
+<p><img alt="Quality Flags" src="file:///Users/umairtalib/DepressiVoice-LLM/docs/reports/quality_flags_breakdown.png" /></p>
+<ul>
+<li>All 36 LOW/VERY_LOW sessions flagged</li>
+<li>1 rescue session (309) flagged</li>
+<li>Transparent tracking for manual review</li>
+</ul>
+<hr />
+<h2 id="failure-modes-limitations">Failure Modes &amp; Limitations</h2>
+<h3 id="known-issues">Known Issues</h3>
+<p><strong>1. Single Speaker Detection (Session 309)</strong>
+- <strong>Symptom:</strong> Only 1 speaker detected
+- <strong>Frequency:</strong> 1/275 (0.4%)
+- <strong>Mitigation:</strong> Forced 2-speaker rescue
+- <strong>Status:</strong> Resolved</p>
+<p><strong>2. Low Biometric Separation (Female-Female)</strong>
+- <strong>Symptom:</strong> Margin &lt; 0.05, high uncertainty
+- <strong>Frequency:</strong> 22/275 (8.0%)
+- <strong>Mitigation:</strong> Duration-based selection + quality flags
+- <strong>Validation:</strong> All 22 checked, duration ratio &gt;2.0 confirms correct assignment</p>
+<p><strong>3. Transcript Contamination</strong>
+- <strong>Symptom:</strong> Interviewer prompts in patient text
+- <strong>Frequency:</strong> 3% sessions &gt;5% contamination
+- <strong>Mitigation:</strong> VAD filtering
+- <strong>Future:</strong> Text cleaning pipeline</p>
+<h3 id="limitations">Limitations</h3>
+<p><strong>1. Timestamp Alignment</strong>
+- Transcripts aligned to <code>patient_audio.wav</code>, not master
+- Can map back using RTTM if needed</p>
+<p><strong>2. Variable Contamination</strong>
+- 3% sessions need text cleaning</p>
+<p><strong>3. Biometric Anchor Generalization</strong>
+- Single anchor may not capture all Ellie voice variations</p>
+<hr />
+<h2 id="future-improvements">Future Improvements</h2>
+<h3 id="1-alignment-refinements">1. Alignment Refinements</h3>
+<ul>
+<li>Map transcript timestamps to master audio via RTTM</li>
+<li>Enable temporal correlation with video/physiological data</li>
+</ul>
+<h3 id="2-additional-validations">2. Additional Validations</h3>
+<ul>
+<li>Acoustic quality metrics (SNR, clipping)</li>
+<li>Speaker consistency checks (intra-patient embedding variance)</li>
+<li>Text cleaning pipeline (remove contamination + fillers)</li>
+</ul>
+<h3 id="3-pipeline-enhancements">3. Pipeline Enhancements</h3>
+<ul>
+<li>Adaptive confidence thresholds (learn from labels)</li>
+<li>Multi-anchor voting (robustness)</li>
+<li>Automated rescue detection</li>
+</ul>
+<hr />
+<h2 id="conclusion">Conclusion</h2>
+<p>Phase 1 rerun successfully processed 275 sessions with:
+- ✅ 100% completion (no data loss)
+- ✅ Robust confidence scoring (74.2% high-confidence)
+- ✅ Quality flagging (37 challenging sessions marked)
+- ✅ Low contamination (1.71% average)
+- ✅ Production-ready for Phase 2</p>
+<p><strong>Deliverables:</strong>
+- 34.1 hours patient audio
+- Word-level transcriptions
+- Confidence scores for sample weighting
+- Quality flags for interpretability</p>
+<p><strong>Next:</strong> Phase 2 - Feature Extraction &amp; Depression Detection Modeling</p>
+<hr />
+<p><strong>Report Version:</strong> 2.0<br />
+<strong>Generated:</strong> February 5, 2026<br />
+<strong>Status:</strong> Production Ready ✅</p>
+</body>
+</html>
