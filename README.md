@@ -30,7 +30,7 @@ pip install -r requirements_phase1.txt
 | Phase | Status | Description | Guide |
 |-------|--------|-------------|-------|
 | **Phase 1** | ✅ Complete | Speaker diarization & transcription | [README_PHASE1.md](docs/README_PHASE1.md) |
-| **Phase 2** | 🚧 In Progress | Feature extraction (WaveLM + Mental-RoBERTa) | [README_PHASE2.md](docs/README_PHASE2.md) |
+| **Phase 2** | ✅ Complete (Audio) | WavLM-Large feature extraction | [README_PHASE2.md](docs/README_PHASE2.md) |
 | **Phase 3** | 📋 Planned | Multimodal fusion & classification | Coming soon |
 
 ---
@@ -45,13 +45,15 @@ DepressiVoice-LLM/
 │   │   ├── transcription.py    # Speech-to-text (Whisper Large-v3)
 │   │   └── generate_anchor.py  # Biometric anchor generation
 │   │
-│   ├── phase2_audio/           # Audio feature extraction 🚧
-│   │   ├── dataset.py          # Audio dataset loader
-│   │   ├── audiomodel.py       # WaveLM model wrapper
-│   │   └── train_audio.py      # Training script
+│   ├── phase2_audio/           # Audio feature extraction ✅
+│   │   ├── extract_features.py  # Main WavLM extraction
+│   │   ├── normalize.py         # Batch normalization
+│   │   ├── validate.py          # Feature validation
+│   │   ├── audiomodel.py        # WaveLM model wrapper
+│   │   └── dataset.py           # Audio dataset loader
 │   │
-│   ├── phase2_text/            # Text embedding extraction 🚧
-│   │   └── extract_embeddings.py  # Mental-RoBERTa extraction
+│   ├── phase2_text/            # Text embedding extraction 📋
+│   │   └── extract_embeddings.py  # Mental-RoBERTa (planned)
 │   │
 │   └── phase3_fusion/          # Multimodal fusion 📋
 │       ├── fusion_model.py     # Fusion architecture
@@ -64,7 +66,8 @@ DepressiVoice-LLM/
 │   │   └── rescue_single_speaker.py  # Edge case handling
 │   │
 │   └── utils/
-│       └── generate_pdf.py     # Report generation
+│       ├── generate_pdf.py     # Report generation
+│       └── html_to_pdf.py      # PDF conversion utilities
 │
 ├── cluster_scripts/            # SLURM batch scripts
 │   ├── phase1/
@@ -72,25 +75,28 @@ DepressiVoice-LLM/
 │   │   └── transcription.sbatch  # Batch transcription job
 │   │
 │   ├── phase2/
-│   │   ├── extract_audio_features.sbatch  # WaveLM extraction
-│   │   └── extract_text_embeddings.sbatch  # Mental-RoBERTa extraction
+│   │   ├── extract_audio_features.sbatch  # WavLM extraction
+│   │   └── extract_text_embeddings.sbatch  # Mental-RoBERTa (planned)
 │   │
 │   └── phase3/
 │       └── train_fusion.sbatch  # Fusion model training
 │
 ├── docs/
-│   ├── README_PHASE1.md        # Phase 1 guide (setup, usage, troubleshooting)
-│   ├── README_PHASE2.md        # Phase 2 guide (feature extraction paths)
-│   ├── PHASE2_HANDOVER_PATHS.md  # Complete path reference
+│   ├── README_PHASE1.md        # Phase 1 guide
+│   ├── README_PHASE2.md        # Phase 2 guide  
+│   ├── README_CLUSTER.md       # Cluster deployment guide
 │   └── reports/
-│       ├── Phase1_Technical_Report.pdf  # Comprehensive technical report
-│       └── *.png               # Validation charts (5 figures)
+│       ├── Phase1_Technical_Report.pdf  # Phase 1 report
+│       ├── Phase2_Technical_Report.pdf  # Phase 2 report ✨
+│       └── *.png               # Validation charts
 │
 └── data/ (gitignored)
-    ├── 01_raw/                 # Master audio files
-    ├── 02_processed/           # Phase 1 outputs (patient audio + transcripts)
-    ├── 03_features/            # Phase 2 outputs (WaveLM + RoBERTa embeddings)
-    └── 04_results/             # Phase 3 outputs (predictions, models)
+    ├── phase1_rerun_outputs/    # Fresh Phase 1 outputs (patient audio + metadata)
+    ├── phase2_clean/            # Phase 2 outputs ✨
+    │   ├── audio_embeddings_raw/       # Raw WavLM features
+    │   └── audio_embeddings_normalized/  # Normalized features
+    ├── 03_features/             # Legacy features (archived)
+    └── 04_results/              # Phase 3 outputs (models, predictions)
 ```
 
 ---
@@ -122,25 +128,35 @@ Master Audio → Diarization → Role Assignment → Patient Audio → Transcrip
 
 ---
 
-## 🔊 Phase 2: Feature Extraction (🚧 In Progress)
+## 🔊 Phase 2: Feature Extraction (✅ Audio Complete, 📋 Text Planned)
 
 **Goal:** Extract acoustic and semantic features for depression detection modeling.
 
-### Part 1: Audio Features (WaveLM)
+### Part 1: Audio Features (WaveLM-Large) ✅ Complete
 
-- **Model:** `microsoft/wavlm-large`
+- **Model:** `microsoft/wavlm-large` (315M parameters)
 - **Input:** Patient audio files (16kHz mono WAV)
-- **Output:** 1024-dim embeddings per session
+- **Output:** 1024-dim embeddings per 8-second window
 - **Location:** `src/phase2_audio/`, `cluster_scripts/phase2/`
 
-### Part 2: Text Embeddings (Mental-RoBERTa)
+**Results:**
+- ✅ 275/275 sessions processed
+- ✅ 15.1 GB normalized features
+- ✅ 89.2% anisotropy reduction via layer normalization
+- ✅ Layer-weighted extraction (layers 6-12, 62% weight on layer 12)
+- ✅ Comprehensive validation & technical report
+
+### Part 2: Text Embeddings (Mental-RoBERTa) 📋 Planned
 
 - **Model:** `mental/mental-roberta-base`
 - **Input:** Patient transcripts (plain text or JSON)
 - **Output:** 768-dim embeddings per session
 - **Location:** `src/phase2_text/`, `cluster_scripts/phase2/`
+- **Status:** Awaiting implementation
 
-**Documentation:** [docs/README_PHASE2.md](docs/README_PHASE2.md)
+**Documentation:** 
+- [Phase 2 Guide](docs/README_PHASE2.md)
+- [Phase 2 Technical Report](docs/reports/Phase2_Technical_Report.pdf)
 
 ---
 
@@ -284,5 +300,5 @@ sbatch cluster_scripts/phase2/extract_text_embeddings.sbatch
 
 ---
 
-**Last Updated:** February 5, 2026  
-**Status:** Phase 1 Complete ✅, Phase 2 In Progress 🚧
+**Last Updated:** February 6, 2026  
+**Status:** Phase 1 Complete ✅, Phase 2 Audio Complete ✅, Phase 2 Text Planned 📋
