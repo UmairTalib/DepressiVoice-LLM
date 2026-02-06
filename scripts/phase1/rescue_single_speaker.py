@@ -106,21 +106,58 @@ def rescue_session_309_force_2speakers(audio_file, output_dir, anchor_file, sess
             logger.info(f"  {speaker} similarity: {sim:.4f}")
     
     # Assign roles
+    # Determine roles
     ellie_candidate = max(similarities.items(), key=lambda x: x[1])[0]
     patient_candidate = [s for s in speakers if s != ellie_candidate][0]
     
-    logger.info(f"Tentative assignment: ELLIE={ellie_candidate}, PATIENT={patient_candidate}")
+    roles = {
+        ellie_candidate: 'ELLIE',
+        patient_candidate: 'PATIENT'
+    }
     
-    # Load audio
+    logger.info(f"Assigned Roles: {roles}")
+    
+    # Calculate durations for metadata
     waveform, sr = sf.read(audio_file)
+    audio_duration = len(waveform) / sr if len(waveform.shape) == 1 else len(waveform) / sr
+    
+    # Create standard metadata for roles.json
+    metadata = {
+        "confidence": "LOW",  # Forced split is always low confidence/manual review
+        "confidence_score": 0.5,
+        "margin": similarities[ellie_candidate] - similarities[patient_candidate],
+        "duration_ratio": 1.0,  # Placeholder
+        "ellie_duration": 0.0,   # Placeholder
+        "patient_duration": 0.0  # Placeholder
+    }
+    
+    # Save standard outputs (RTTM and roles.json)
+    save_diarization_results(diarization, roles, similarities, metadata, output_dir, session_id)
+    
+    # Load audio for extraction
     if len(waveform.shape) > 1:
         waveform = np.mean(waveform, axis=1)
     
-    # Create output directory
+    # Create output directory (already created in save_diarization_results but safe to keep)
     session_dir = Path(output_dir) / f"session_{session_id}"
     session_dir.mkdir(parents=True, exist_ok=True)
     
-    # Extract BOTH speakers for manual review
+    # Extract standard patient_audio.wav (auto-selected based on roles)
+    patient_segments = []
+    for seg, _, lbl in diarization.itertracks(yield_label=True):
+        if lbl == patient_candidate:
+            start_sample = int(seg.start * sr)
+            end_sample = int(seg.end * sr)
+            if start_sample < len(waveform) and end_sample <= len(waveform):
+                patient_segments.append(waveform[start_sample:end_sample])
+    
+    if patient_segments:
+        patient_audio = np.concatenate(patient_segments)
+        output_file = session_dir / "patient_audio.wav"
+        sf.write(output_file, patient_audio, sr)
+        logger.info(f"Saved standard patient audio: {output_file}")
+    
+    # Also save separate candidate files for manual verification if needed
     for speaker in speakers:
         segments = []
         for seg, _, lbl in diarization.itertracks(yield_label=True):
@@ -132,64 +169,60 @@ def rescue_session_309_force_2speakers(audio_file, output_dir, anchor_file, sess
         
         if segments:
             speaker_audio = np.concatenate(segments)
-            duration = len(speaker_audio) / sr
-            
-            # Determine if this is the patient candidate
-            if speaker == patient_candidate:
-                output_file = session_dir / f"patient_audio_CANDIDATE.wav"
-                role = "PATIENT_CANDIDATE"
-            else:
-                output_file = session_dir / f"ellie_audio_CANDIDATE.wav"
-                role = "ELLIE_CANDIDATE"
-            
+            role_suffix = "ELLIE" if speaker == ellie_candidate else "PATIENT"
+            output_file = session_dir / f"{speaker}_{role_suffix}.wav"
             sf.write(output_file, speaker_audio, sr)
-            logger.info(f"Extracted {speaker} as {role}: {output_file.name} ({duration:.2f}s)")
-    
-    # Save rescue metadata
-    rescue_metadata = {
-        "session_id": session_id,
-        "rescue_mode": "FORCE_2_SPEAKERS",
-        "original_speakers_detected": 1,
-        "forced_speakers": 2,
-        "tentative_roles": {
-            ellie_candidate: "ELLIE_CANDIDATE",
-            patient_candidate: "PATIENT_CANDIDATE"
-        },
-        "similarities": similarities,
-        "manual_review_required": True,
-        "instruction": "Listen to BOTH audio files and manually select the correct patient audio"
-    }
-    
-    rescue_file = session_dir / "rescue_metadata.json"
-    with open(rescue_file, 'w') as f:
-        json.dump(rescue_metadata, f, indent=2)
-    
-    logger.info(f"Rescue metadata saved: {rescue_file}")
-    
-    # Create quality flag
+            logger.info(f"Saved candidate audio: {output_file}")
+
+    # Create quality flag for forced split
     quality_flag = {
         "session_id": session_id,
         "flag_type": "FORCED_2SPEAKER_SPLIT",
         "confidence": "MANUAL_REVIEW",
         "reason": "Only 1 speaker detected originally - forced split into 2",
-        "review_recommended": True,
-        "action_required": "Listen to both candidates and pick correct patient audio"
+        "review_recommended": True
     }
     
-    quality_flag_file = session_dir / "quality_flag.json"
-    with open(quality_flag_file, 'w') as f:
+    with open(session_dir / "quality_flag.json", 'w') as f:
         json.dump(quality_flag, f, indent=2)
     
-    logger.warning("=" * 60)
-    logger.warning("MANUAL REVIEW REQUIRED")
-    logger.warning(f"Files created:")
-    logger.warning(f"  - patient_audio_CANDIDATE.wav (tentative patient)")
-    logger.warning(f"  - ellie_audio_CANDIDATE.wav (tentative interviewer)")
-    logger.warning("")
-    logger.warning("ACTION: Listen to BOTH files and:")
-    logger.warning("  1. Rename the correct one to 'patient_audio.wav'")
-    logger.warning("  2. Delete the other file")
-    logger.warning("=" * 60)
+    logger.info("=" * 60)
+    logger.info(f"RESCUE COMPLETE for Session {session_id}")
+    logger.info(f"Generated:")
+    logger.info(f"  - {session_id}.rttm")
+    logger.info(f"  - roles.json")
+    logger.info(f"  - patient_audio.wav")
+    logger.info("=" * 60)
+
+def save_diarization_results(diarization, roles, similarities, metadata, output_dir, session_id):
+    """Save diarization results to RTTM and roles JSON ensuring compatibility"""
+    session_dir = Path(output_dir) / f"session_{session_id}"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save RTTM
+    rttm_file = session_dir / f"{session_id}.rttm"
+    with open(rttm_file, 'w') as f:
+        for segment, _, label in diarization.itertracks(yield_label=True):
+            f.write(f"SPEAKER {session_id} 1 {segment.start:.3f} {segment.duration:.3f} <NA> <NA> {label} <NA> <NA>\n")
+    
+    # Save roles.json
+    roles_file = session_dir / "roles.json"
+    roles_data = {
+        "roles": roles,
+        "similarities": similarities,
+        "separation_margin": metadata.get("margin", 0.0),
+        "confidence": "LOW",
+        "note": "Generated via rescue_single_speaker.py (forced split)",
+        "durations": {
+            "ellie": metadata.get("ellie_duration", 0.0),
+            "patient": metadata.get("patient_duration", 0.0)
+        }
+    }
+    
+    with open(roles_file, 'w') as f:
+        json.dump(roles_data, f, indent=2)
+    
+    return str(rttm_file), str(roles_file)
 
 def main():
     parser = argparse.ArgumentParser(description="Rescue session 309 with forced 2-speaker split")
@@ -201,7 +234,7 @@ def main():
                        default="/home/g755389/DepressiVoice-LLM/phase1_rerun_outputs",
                        help="Output directory")
     parser.add_argument("--anchor_file",
-                       default="/home/g755389/DepressiVoice-LLM/ellie_anchor.json",
+                       default="/home/g755389/DepressiVoice-LLM/biometric_anchor.pt",
                        help="Ellie biometric anchor file")
     parser.add_argument("--log_dir",
                        default="/home/g755389/DepressiVoice-LLM/logs",
@@ -209,14 +242,17 @@ def main():
     
     args = parser.parse_args()
     
+    # Ensure directories exist
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    Path(args.log_dir).mkdir(parents=True, exist_ok=True)
+    
     logger = setup_logging(args.log_dir, args.session_id)
     
     print(f"\n{'='*60}")
-    print(f"SESSION 309 RESCUE - FORCE 2 SPEAKERS")
+    print(f"SESSION {args.session_id} RESCUE - FORCE 2 SPEAKERS")
     print(f"{'='*60}\n")
     
     logger.info(f"Starting rescue for session {args.session_id}")
-    logger.info(f"Input: {args.audio_file}")
     
     # Run rescue
     rescue_session_309_force_2speakers(
@@ -226,11 +262,6 @@ def main():
         args.session_id,
         logger
     )
-    
-    print(f"\n{'='*60}")
-    print(f"RESCUE COMPLETE - MANUAL REVIEW REQUIRED")
-    print(f"Check: {args.output_dir}/session_{args.session_id}/")
-    print(f"{'='*60}\n")
     
     return 0
 
