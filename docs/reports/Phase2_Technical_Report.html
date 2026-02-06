@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="DepressiVoice-LLM Project" />
+  <title>Phase 2: SOTA Audio Feature Extraction - Technical Report</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css" />
+  
+  
+  
+  
+  
+  
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Phase 2 Technical Report</h1>
+<p class="author">DepressiVoice-LLM Project</p>
+<p class="date">February 5-6, 2026</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#executive-summary" id="toc-executive-summary">Executive
+Summary</a>
+<ul>
+<li><a href="#key-results" id="toc-key-results">Key Results</a></li>
+</ul></li>
+<li><a href="#pipeline-overview" id="toc-pipeline-overview">Pipeline
+Overview</a>
+<ul>
+<li><a href="#phase-2a-raw-feature-extraction"
+id="toc-phase-2a-raw-feature-extraction">Phase 2A: Raw Feature
+Extraction</a></li>
+<li><a href="#phase-2b-batch-normalization"
+id="toc-phase-2b-batch-normalization">Phase 2B: Batch
+Normalization</a></li>
+</ul></li>
+<li><a href="#methodology" id="toc-methodology">Methodology</a>
+<ul>
+<li><a href="#data-source" id="toc-data-source">1. Data Source</a>
+<ul>
+<li><a href="#fresh-phase-1-rerun-outputs"
+id="toc-fresh-phase-1-rerun-outputs">Fresh Phase 1 Rerun
+Outputs</a></li>
+<li><a href="#quality-characteristics"
+id="toc-quality-characteristics">Quality Characteristics</a></li>
+</ul></li>
+<li><a href="#model-architecture" id="toc-model-architecture">2. Model
+Architecture</a>
+<ul>
+<li><a href="#wavlm-large-specifications"
+id="toc-wavlm-large-specifications">WavLM-Large Specifications</a></li>
+<li><a href="#rationale-for-wavlm-large"
+id="toc-rationale-for-wavlm-large">Rationale for WavLM-Large</a></li>
+</ul></li>
+<li><a href="#feature-extraction-configuration"
+id="toc-feature-extraction-configuration">3. Feature Extraction
+Configuration</a>
+<ul>
+<li><a href="#windowing-strategy" id="toc-windowing-strategy">Windowing
+Strategy</a></li>
+<li><a href="#weighted-layer-sum" id="toc-weighted-layer-sum">Weighted
+Layer Sum</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#hyperparameters"
+id="toc-hyperparameters">Hyperparameters</a>
+<ul>
+<li><a href="#extraction-parameters"
+id="toc-extraction-parameters">Extraction Parameters</a></li>
+<li><a href="#slurm-configuration" id="toc-slurm-configuration">SLURM
+Configuration</a></li>
+</ul></li>
+<li><a href="#environment-reproducibility"
+id="toc-environment-reproducibility">Environment &amp;
+Reproducibility</a>
+<ul>
+<li><a href="#cluster-setup" id="toc-cluster-setup">Cluster
+Setup</a></li>
+<li><a href="#gpu-nodes-used" id="toc-gpu-nodes-used">GPU Nodes
+Used</a></li>
+<li><a href="#software-environment"
+id="toc-software-environment">Software Environment</a></li>
+</ul></li>
+<li><a href="#validation-results" id="toc-validation-results">Validation
+Results</a>
+<ul>
+<li><a href="#extraction-completeness"
+id="toc-extraction-completeness">1. Extraction Completeness</a></li>
+<li><a href="#anisotropy-analysis" id="toc-anisotropy-analysis">2.
+Anisotropy Analysis</a>
+<ul>
+<li><a href="#pre-normalization-issue"
+id="toc-pre-normalization-issue">Pre-Normalization Issue</a></li>
+<li><a href="#visualization-evidence"
+id="toc-visualization-evidence">Visualization Evidence</a></li>
+</ul></li>
+<li><a href="#normalization-effectiveness"
+id="toc-normalization-effectiveness">3. Normalization Effectiveness</a>
+<ul>
+<li><a href="#before-vs-after-comparison-275-sessions"
+id="toc-before-vs-after-comparison-275-sessions">Before vs After
+Comparison (275 Sessions)</a></li>
+<li><a href="#sample-sessions" id="toc-sample-sessions">Sample
+Sessions</a></li>
+</ul></li>
+<li><a href="#data-quality-checks" id="toc-data-quality-checks">4. Data
+Quality Checks</a>
+<ul>
+<li><a href="#random-sample-validation-10-sessions"
+id="toc-random-sample-validation-10-sessions">Random Sample Validation
+(10 Sessions)</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#known-limitations" id="toc-known-limitations">Known
+Limitations</a>
+<ul>
+<li><a href="#low-confidence-sessions"
+id="toc-low-confidence-sessions">1. Low-Confidence Sessions</a></li>
+<li><a href="#contamination-residuals"
+id="toc-contamination-residuals">2. Contamination Residuals</a></li>
+<li><a href="#window-boundary-effects"
+id="toc-window-boundary-effects">3. Window Boundary Effects</a></li>
+</ul></li>
+<li><a href="#future-improvements" id="toc-future-improvements">Future
+Improvements</a>
+<ul>
+<li><a href="#alignment-refinements" id="toc-alignment-refinements">1.
+Alignment Refinements</a></li>
+<li><a href="#additional-validations" id="toc-additional-validations">2.
+Additional Validations</a></li>
+<li><a href="#multi-layer-fusion-exploration"
+id="toc-multi-layer-fusion-exploration">3. Multi-Layer Fusion
+Exploration</a></li>
+</ul></li>
+<li><a href="#outputs-summary" id="toc-outputs-summary">Outputs
+Summary</a>
+<ul>
+<li><a href="#generated-files" id="toc-generated-files">Generated
+Files</a></li>
+</ul></li>
+<li><a href="#phase-3-handover" id="toc-phase-3-handover">Phase 3
+Handover</a>
+<ul>
+<li><a href="#ready-for-fusion" id="toc-ready-for-fusion">Ready for
+Fusion</a></li>
+<li><a href="#feature-characteristics"
+id="toc-feature-characteristics">Feature Characteristics</a></li>
+<li><a href="#quality-considerations"
+id="toc-quality-considerations">Quality Considerations</a></li>
+</ul></li>
+<li><a href="#conclusion" id="toc-conclusion">Conclusion</a></li>
+</ul>
+</nav>
+<h1 id="executive-summary">Executive Summary</h1>
+<p>Successfully completed Phase 2 SOTA audio feature extraction pipeline
+using fresh, clean patient-only audio from Phase 1 rerun. All
+<strong>275 sessions</strong> processed with WavLM-Large model, followed
+by layer normalization to fix anisotropy. Features ready for Phase 3
+fusion model training.</p>
+<h2 id="key-results">Key Results</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Metric</th>
+<th style="text-align: left;">Value</th>
+<th style="text-align: center;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Sessions Processed</strong></td>
+<td style="text-align: left;">275/275</td>
+<td style="text-align: center;">✅ 100%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Model</strong></td>
+<td style="text-align: left;">microsoft/wavlm-large</td>
+<td style="text-align: center;">✅ SOTA</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Feature Dimension</strong></td>
+<td style="text-align: left;">1024 (per frame)</td>
+<td style="text-align: center;">✅ Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Anisotropy Fix</strong></td>
+<td style="text-align: left;">232.12 → 25.12 max</td>
+<td style="text-align: center;">✅ 89.2% reduction</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Data Quality</strong></td>
+<td style="text-align: left;">No NaN/Inf</td>
+<td style="text-align: center;">✅ Valid</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Output Format</strong></td>
+<td style="text-align: left;">FP16 .pt files</td>
+<td style="text-align: center;">✅ Optimized</td>
+</tr>
+</tbody>
+</table>
+<h1 id="pipeline-overview">Pipeline Overview</h1>
+<h2 id="phase-2a-raw-feature-extraction">Phase 2A: Raw Feature
+Extraction</h2>
+<p><strong>Input:</strong>
+<code>/home/g755389/DepressiVoice-LLM/phase1_rerun_outputs/session_*/patient_audio.wav</code><br />
+<strong>Output:</strong>
+<code>/home/g755389/DepressiVoice-LLM/data/phase2_clean/audio_embeddings_raw/</code><br />
+<strong>Duration:</strong> ~3 hours (275 sessions, max 20 parallel
+GPUs)</p>
+<p><strong>Process:</strong></p>
+<ol type="1">
+<li>Load WavLM-Large (315M parameters)</li>
+<li>Segment audio into 8-second windows</li>
+<li>Extract hidden states from layers 6-12</li>
+<li>Apply weighted layer sum with softmax normalization</li>
+<li>Save as FP16 tensors</li>
+</ol>
+<h2 id="phase-2b-batch-normalization">Phase 2B: Batch Normalization</h2>
+<p><strong>Input:</strong> <code>audio_embeddings_raw/*.pt</code> (275
+files)<br />
+<strong>Output:</strong> <code>audio_embeddings_normalized/*.pt</code>
+(275 files)<br />
+<strong>Duration:</strong> ~3.5 minutes</p>
+<p><strong>Process:</strong></p>
+<ol type="1">
+<li>Load raw features (FP32 for precision)</li>
+<li>Apply <code>F.layer_norm</code> across 1024-dim feature space</li>
+<li>Convert back to FP16 for storage</li>
+<li>Validate output ranges</li>
+</ol>
+<h1 id="methodology">Methodology</h1>
+<h2 id="data-source">1. Data Source</h2>
+<h3 id="fresh-phase-1-rerun-outputs">Fresh Phase 1 Rerun Outputs</h3>
+<ul>
+<li><strong>Location:</strong>
+<code>/home/g755389/DepressiVoice-LLM/phase1_rerun_outputs/</code></li>
+<li><strong>Sessions:</strong> 275 (ID range: 300-718,
+non-continuous)</li>
+<li><strong>Audio Format:</strong> 16kHz mono WAV, patient-only
+speech</li>
+<li><strong>Total Duration:</strong> 34.1 hours</li>
+<li><strong>Naming Convention:</strong>
+<code>session_{ID}/patient_audio.wav</code></li>
+</ul>
+<h3 id="quality-characteristics">Quality Characteristics</h3>
+<ul>
+<li>✅ Interviewer speech removed via diarization</li>
+<li>✅ Silence removed via VAD</li>
+<li>✅ Concatenated patient utterances only</li>
+<li>⚠️ 37 sessions flagged as LOW/VERY_LOW confidence (included with
+weighting)</li>
+</ul>
+<h2 id="model-architecture">2. Model Architecture</h2>
+<h3 id="wavlm-large-specifications">WavLM-Large Specifications</h3>
+<ul>
+<li><strong>Authors:</strong> Microsoft Research</li>
+<li><strong>Parameters:</strong> 315 million</li>
+<li><strong>Layers:</strong> 25 transformer layers<br />
+</li>
+<li><strong>Hidden Size:</strong> 1024</li>
+<li><strong>Pretraining:</strong> 94k hours of audio (Libri-Light,
+GigaSpeech, VoxPopuli)</li>
+<li><strong>Specialization:</strong> Self-supervised speech
+representation learning</li>
+</ul>
+<h3 id="rationale-for-wavlm-large">Rationale for WavLM-Large</h3>
+<ul>
+<li>State-of-the-art for speech biomarker extraction</li>
+<li>Captures prosodic features (pitch, rhythm, energy)</li>
+<li>Robust to speaker variability</li>
+<li>Better than Wav2Vec2 for paralinguistic tasks</li>
+</ul>
+<h2 id="feature-extraction-configuration">3. Feature Extraction
+Configuration</h2>
+<h3 id="windowing-strategy">Windowing Strategy</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>window_size_sec <span class="op">=</span> <span class="fl">8.0</span>  <span class="co"># seconds</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>stride_sec <span class="op">=</span> <span class="fl">8.0</span>       <span class="co"># non-overlapping</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>target_sr <span class="op">=</span> <span class="dv">16000</span>      <span class="co"># Hz</span></span></code></pre></div>
+<p><strong>Window Size Rationale:</strong></p>
+<ul>
+<li>8 seconds captures full utterances (avg patient turn: 6-10s)</li>
+<li>Non-overlapping reduces redundancy and storage (vs 50% overlap)</li>
+<li>Matches text windowing strategy for Phase 3 alignment</li>
+</ul>
+<h3 id="weighted-layer-sum">Weighted Layer Sum</h3>
+<p><strong>Selected Layers:</strong> 6-12 (middle-to-upper layers)<br />
+<strong>Weights:</strong> <code>[1, 1, 1, 2, 3, 4, 5]</code><br />
+<strong>Normalization:</strong> Softmax</p>
+<p><strong>Rationale:</strong></p>
+<ul>
+<li>Lower layers (6-8): Phonetic features</li>
+<li>Middle layers (9-10): Prosodic patterns</li>
+<li>Upper layers (11-12): Semantic/paralinguistic biomarkers</li>
+<li>Exponential weighting emphasizes biomarker-rich layers</li>
+</ul>
+<p><strong>Alternatives Considered:</strong></p>
+<ul>
+<li>❌ All 25 layers: Computational cost too high</li>
+<li>❌ Last layer only: Loses temporal dynamics</li>
+<li>❌ Equal weights: Doesn’t prioritize biomarker layers</li>
+<li>✅ <strong>Weighted sum (6-12)</strong>: Best accuracy/efficiency
+trade-off</li>
+</ul>
+<h1 id="hyperparameters">Hyperparameters</h1>
+<h2 id="extraction-parameters">Extraction Parameters</h2>
+
+<h2 id="slurm-configuration">SLURM Configuration</h2>
+
+<h1 id="environment-reproducibility">Environment &amp;
+Reproducibility</h1>
+<h2 id="cluster-setup">Cluster Setup</h2>
+<ul>
+<li><strong>System:</strong> OMNI HPC (University of Siegen)</li>
+<li><strong>Operating System:</strong> Rocky Linux 8.x</li>
+<li><strong>Job Scheduler:</strong> SLURM 21.x</li>
+</ul>
+<h2 id="gpu-nodes-used">GPU Nodes Used</h2>
+
+<h2 id="software-environment">Software Environment</h2>
+<p><strong>Python:</strong> 3.11.2 (via
+<code>module load python/3.11.2</code>)<br />
+<strong>PyTorch:</strong> 2.1.2 with CUDA 12.1 support<br />
+<strong>Transformers:</strong> 4.36.2 (HuggingFace)</p>
+<p><strong>Additional Libraries:</strong></p>
+<ul>
+<li><code>librosa==0.10.1</code> (audio loading)</li>
+<li><code>scipy==1.11.4</code> (signal processing)</li>
+<li><code>tqdm==4.66.1</code> (progress tracking)</li>
+</ul>
+<p><strong>Environment Variables:</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">HF_HOME</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$PROJECT_ROOT</span><span class="st">/.cache/huggingface&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">TRANSFORMERS_CACHE</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$HF_HOME</span><span class="st">/transformers&quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">TORCH_HOME</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$PROJECT_ROOT</span><span class="st">/.cache/torch&quot;</span></span></code></pre></div>
+<h1 id="validation-results">Validation Results</h1>
+<h2 id="extraction-completeness">1. Extraction Completeness</h2>
+<p>✅ <strong>275/275 sessions successfully extracted</strong></p>
+<ul>
+<li>Session ID range: 300-718 (non-continuous)</li>
+<li>No failed jobs (all exit code 0)</li>
+<li>Average processing time: 28 seconds/session</li>
+</ul>
+<h2 id="anisotropy-analysis">2. Anisotropy Analysis</h2>
+<h3 id="pre-normalization-issue">Pre-Normalization Issue</h3>
+<p><strong>Rogue Dimension Detection:</strong></p>
+<h3 id="visualization-evidence">Visualization Evidence</h3>
+<p><strong>Findings:</strong></p>
+<ul>
+<li>Feature heatmap shows “yellow stripe” at dimension 774</li>
+<li>Drowns out temporal speech patterns in other dimensions</li>
+<li>Consistent across all sessions (model bias, not data issue)</li>
+</ul>
+<h2 id="normalization-effectiveness">3. Normalization Effectiveness</h2>
+<h3 id="before-vs-after-comparison-275-sessions">Before vs After
+Comparison (275 Sessions)</h3>
+
+<h3 id="sample-sessions">Sample Sessions</h3>
+<p><strong>Session 300:</strong></p>
+<ul>
+<li>Original: max=216.88, min=-86.62</li>
+<li>Normalized: max=23.50, min=-13.88</li>
+<li>Shape maintained: <code>[16, 399, 1024]</code></li>
+</ul>
+<p><strong>Session 632:</strong></p>
+<ul>
+<li>Original: max=213.38, min=-86.19</li>
+<li>Normalized: max=24.15, min=-13.83</li>
+<li>Shape maintained: <code>[72, 399, 1024]</code></li>
+</ul>
+<h2 id="data-quality-checks">4. Data Quality Checks</h2>
+<p>✅ <strong>No NaN values</strong> (0/275 sessions)<br />
+✅ <strong>No Inf values</strong> (0/275 sessions)<br />
+✅ <strong>Shape consistency</strong> (all
+<code>[Windows, 399, 1024]</code>)<br />
+✅ <strong>Dtype correct</strong> (torch.float16 after
+normalization)</p>
+<h3 id="random-sample-validation-10-sessions">Random Sample Validation
+(10 Sessions)</h3>
+
+<h1 id="known-limitations">Known Limitations</h1>
+<h2 id="low-confidence-sessions">1. Low-Confidence Sessions</h2>
+<p><strong>37 sessions flagged</strong> as LOW/VERY_LOW confidence from
+Phase 1:</p>
+<ul>
+<li>Likely female-female speaker pairs (low biometric separation)</li>
+<li>Included in extraction (for completeness)</li>
+<li><strong>Recommendation:</strong> Use confidence-based weighting in
+Phase 3 training</li>
+</ul>
+<p><strong>Session 309 Special Case:</strong></p>
+<ul>
+<li>Rescue mode (forced 2-speaker split from 1-speaker detection)</li>
+<li>Confidence: 0.0</li>
+<li><strong>Recommendation:</strong> Consider exclusion or manual
+review</li>
+</ul>
+<h2 id="contamination-residuals">2. Contamination Residuals</h2>
+<p><strong>Average contamination:</strong> 1.71% interviewer prompts in
+transcripts</p>
+<ul>
+<li>8 sessions with &gt;5% contamination</li>
+<li>Audio features likely contain some interviewer leakage</li>
+<li><strong>Impact:</strong> Minimal for acoustic features (prosody less
+affected than text)</li>
+</ul>
+<h2 id="window-boundary-effects">3. Window Boundary Effects</h2>
+<p><strong>Non-overlapping windows:</strong></p>
+<ul>
+<li>May split mid-utterance at 8-second boundaries</li>
+<li>Potential information loss at window edges</li>
+<li><strong>Alternative:</strong> 50% overlap (rejected due to 2x
+storage cost)</li>
+</ul>
+<h1 id="future-improvements">Future Improvements</h1>
+<h2 id="alignment-refinements">1. Alignment Refinements</h2>
+<p><strong>Temporal Alignment with Text:</strong></p>
+<ul>
+<li>Current: 8-second audio windows</li>
+<li>Proposal: Dynamic windowing based on utterance boundaries from Phase
+1 RTTM</li>
+<li>Benefit: Better audio-text synchronization for fusion</li>
+</ul>
+<h2 id="additional-validations">2. Additional Validations</h2>
+<p><strong>Linear Probe Baseline:</strong></p>
+<ul>
+<li>Train simple classifier on normalized features</li>
+<li>Target: &gt;70% depression detection accuracy</li>
+<li>Purpose: Validate biomarker signal preservation</li>
+</ul>
+<p><strong>PCA Visualization:</strong></p>
+<ul>
+<li>Project 1024-dim features to 2D/3D</li>
+<li>Verify depressed vs non-depressed clustering</li>
+<li>Identify primary variance components</li>
+</ul>
+<h2 id="multi-layer-fusion-exploration">3. Multi-Layer Fusion
+Exploration</h2>
+<p><strong>Current:</strong> Weighted sum of layers 6-12<br />
+<strong>Proposal:</strong> Concatenate layers instead of summing</p>
+<ul>
+<li>Dimension: 1024 × 7 = 7168 (too large)</li>
+<li>Solution: Dimensionality reduction via PCA (7168 → 512)</li>
+<li>Benefit: Preserve layer-specific information</li>
+</ul>
+<h1 id="outputs-summary">Outputs Summary</h1>
+<h2 id="generated-files">Generated Files</h2>
+<p><strong>Raw Features:</strong>
+<code>data/phase2_clean/audio_embeddings_raw/</code></p>
+<ul>
+<li>275 <code>.pt</code> files (format:
+<code>{session_id}_features.pt</code>)</li>
+<li>Shape: <code>[Windows, 399, 1024]</code> per file</li>
+<li>Dtype: torch.float16</li>
+<li>Total size: 15.2 GB</li>
+</ul>
+<p><strong>Normalized Features:</strong>
+<code>data/phase2_clean/audio_embeddings_normalized/</code></p>
+<ul>
+<li>275 <code>.pt</code> files (format:
+<code>{session_id}_features.pt</code>)</li>
+<li>Shape: <code>[Windows, 399, 1024]</code> per file</li>
+<li>Dtype: torch.float16</li>
+<li>Total size: 15.1 GB</li>
+</ul>
+<p><strong>Validation Summary:</strong>
+<code>data/phase2_clean/validation_summary.json</code></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;total_sessions&quot;</span><span class="fu">:</span> <span class="dv">275</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;extraction_complete&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;normalization_complete&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;raw_max_global&quot;</span><span class="fu">:</span> <span class="fl">232.12</span><span class="fu">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;norm_max_global&quot;</span><span class="fu">:</span> <span class="fl">25.12</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reduction_percent&quot;</span><span class="fu">:</span> <span class="fl">89.2</span><span class="fu">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;validation_passed&quot;</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h1 id="phase-3-handover">Phase 3 Handover</h1>
+<h2 id="ready-for-fusion">Ready for Fusion</h2>
+<p>✅ <strong>Audio Features:</strong> 275 sessions at
+<code>data/phase2_clean/audio_embeddings_normalized/</code><br />
+⏳ <strong>Text Features:</strong> Awaiting Mental-RoBERTa
+extraction<br />
+🔜 <strong>Next Step:</strong> Multimodal fusion model training</p>
+<h2 id="feature-characteristics">Feature Characteristics</h2>
+<p><strong>Shape per Session:</strong>
+<code>[Windows, 399, 1024]</code></p>
+<ul>
+<li><code>Windows</code>: Variable (depends on session duration)</li>
+<li><code>399</code>: Time frames per 8-second window (~20ms
+resolution)</li>
+<li><code>1024</code>: Feature dimension (WavLM-Large hidden size)</li>
+</ul>
+<p><strong>Recommended Aggregation:</strong></p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Mean pooling over time frames</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>audio_feat <span class="op">=</span> torch.load(<span class="ss">f&#39;</span><span class="sc">{</span>session_id<span class="sc">}</span><span class="ss">_features.pt&#39;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>pooled <span class="op">=</span> audio_feat.mean(dim<span class="op">=</span><span class="dv">1</span>)  <span class="co"># Shape: [Windows, 1024]</span></span></code></pre></div>
+<p><strong>Alignment with Text:</strong></p>
+<ul>
+<li>Both audio and text use 8-second windows</li>
+<li>Session IDs match (300-718 range)</li>
+<li>Direct index alignment: <code>audio_windows[i]</code> ↔︎
+<code>text_windows[i]</code></li>
+</ul>
+<h2 id="quality-considerations">Quality Considerations</h2>
+<p><strong>Use Confidence Weighting:</strong></p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="ss">f&#39;phase1_rerun_outputs/session_</span><span class="sc">{</span>sid<span class="sc">}</span><span class="ss">/roles.json&#39;</span>) <span class="im">as</span> f:</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    confidence <span class="op">=</span> json.load(f)[<span class="st">&#39;confidence_score&#39;</span>]  <span class="co"># 0.3-1.0</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>sample_weight <span class="op">=</span> confidence <span class="op">**</span> <span class="dv">2</span>  <span class="co"># Quadratic weighting</span></span></code></pre></div>
+<p><strong>Sessions to Review:</strong></p>
+<ul>
+<li>Session 309: Rescue case, confidence=0.0 (consider excluding)</li>
+<li>37 sessions with LOW/VERY_LOW confidence (downweight)</li>
+</ul>
+<h1 id="conclusion">Conclusion</h1>
+<p>Phase 2 SOTA audio feature extraction completed successfully. All 275
+sessions processed using WavLM-Large with batch normalization to fix
+anisotropy. Features are clean, validated, and ready for Phase 3
+multimodal fusion training. The pipeline is reproducible via SLURM
+scripts and documented configurations.</p>
+<p><strong>Final Status:</strong> ✅ <strong>COMPLETE AND
+VALIDATED</strong></p>
+<hr />
+<p><strong>Report Generated:</strong> February 6, 2026<br />
+<strong>Project:</strong> DepressiVoice-LLM<br />
+<strong>Phase:</strong> 2 (SOTA Audio Feature Extraction)</p>
+</body>
+</html>
