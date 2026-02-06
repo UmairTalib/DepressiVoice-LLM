@@ -149,6 +149,13 @@ We ran `src/phase2_text/validate_alignment.py` across all 275 sessions.
 *   **Dtype:** `torch.float32` (saved as `.pt`)
 *   **Values:** Normalized (Mean $\approx$ 0.0, Std $\approx$ 1.0).
 
+## 4. Label Verification
+We verified the existence of ground-truth labels for all processed sessions.
+*   **Source:** `data/01_raw/detailed_lables.csv`
+*   **Coverage:** 275/275 sessions matched.
+*   **Splits:** Train (163), Dev (56), Test (56).
+*   **Target:** `Depression_label` (Binary) and `Depression_severity` (Score) are complete.
+
 \newpage
 
 # Known Limitations

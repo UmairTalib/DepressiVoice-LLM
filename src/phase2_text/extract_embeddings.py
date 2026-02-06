@@ -165,8 +165,14 @@ def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=Fa
     # 5. Z-Score Normalization (Per-Session) to match Audio statistics
     # Standardize to Mean=0, Std=1
     mean = embeddings_tensor.mean(dim=0, keepdim=True)
-    std = embeddings_tensor.std(dim=0, keepdim=True)
-    embeddings_tensor = (embeddings_tensor - mean) / (std + 1e-8)
+    std = embeddings_tensor.std(dim=0, keepdim=True, unbiased=False)
+    
+    # Handle constant features (std=0)
+    # If std is 0, replace with 1.0 to avoid division by zero/epsilon issues
+    # The result (x - mean) / 1.0 will correct be 0.0 since x == mean
+    std_safe = torch.where(std < 1e-6, torch.ones_like(std), std)
+    
+    embeddings_tensor = (embeddings_tensor - mean) / std_safe
     
     if verbose:
         print(f"  Normalized: Mean={embeddings_tensor.mean():.4f}, Std={embeddings_tensor.std():.4f}")
@@ -199,11 +205,8 @@ def main():
     parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face token for gated models")
     parser.add_argument("--verbose", action="store_true", help="Print detailed logs")
     
-    args = parser.parse_args()
-    
-    # Add flag to skip filtering if source is already patient-only
     parser.add_argument("--skip_filtering", action="store_true", help="Skip RTTM/Role filtering (use all words)")
-    # Re-parse to handle new argument
+    
     args = parser.parse_args()
 
     # Set HF token if provided
