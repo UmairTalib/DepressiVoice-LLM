@@ -30,7 +30,7 @@ pip install -r requirements_phase1.txt
 | Phase | Status | Description | Guide |
 |-------|--------|-------------|-------|
 | **Phase 1** | ✅ Complete | Speaker diarization & transcription | [README_PHASE1.md](docs/README_PHASE1.md) |
-| **Phase 2** | ✅ Complete (Audio) | WavLM-Large feature extraction | [README_PHASE2.md](docs/README_PHASE2.md) |
+| **Phase 2** | ✅ Complete | WavLM-Large (Audio) + Mental-RoBERTa (Text) | [README_PHASE2.md](docs/README_PHASE2.md) |
 | **Phase 3** | 📋 Planned | Multimodal fusion & classification | Coming soon |
 
 ---
@@ -52,8 +52,9 @@ DepressiVoice-LLM/
 │   │   ├── audiomodel.py        # WaveLM model wrapper
 │   │   └── dataset.py           # Audio dataset loader
 │   │
-│   ├── phase2_text/            # Text embedding extraction 📋
-│   │   └── extract_embeddings.py  # Mental-RoBERTa (planned)
+│   ├── phase2_text/            # Text embedding extraction ✅
+│   │   ├── extract_embeddings.py  # Mental-RoBERTa extraction
+│   │   └── validate_alignment.py  # Output verification
 │   │
 │   └── phase3_fusion/          # Multimodal fusion 📋
 │       ├── fusion_model.py     # Fusion architecture
@@ -76,7 +77,7 @@ DepressiVoice-LLM/
 │   │
 │   ├── phase2/
 │   │   ├── extract_audio_features.sbatch  # WavLM extraction
-│   │   └── extract_text_embeddings.sbatch  # Mental-RoBERTa (planned)
+│   │   └── extract_text_embeddings.sbatch  # Mental-RoBERTa extraction
 │   │
 │   └── phase3/
 │       └── train_fusion.sbatch  # Fusion model training
@@ -128,7 +129,7 @@ Master Audio → Diarization → Role Assignment → Patient Audio → Transcrip
 
 ---
 
-## 🔊 Phase 2: Feature Extraction (✅ Audio Complete, 📋 Text Planned)
+## 🔊 Phase 2: Feature Extraction (✅ Complete)
 
 **Goal:** Extract acoustic and semantic features for depression detection modeling.
 
@@ -146,13 +147,13 @@ Master Audio → Diarization → Role Assignment → Patient Audio → Transcrip
 - ✅ Layer-weighted extraction (layers 6-12, 62% weight on layer 12)
 - ✅ Comprehensive validation & technical report
 
-### Part 2: Text Embeddings (Mental-RoBERTa) 📋 Planned
+### Part 2: Text Embeddings (Mental-RoBERTa) ✅ Complete
 
 - **Model:** `mental/mental-roberta-base`
-- **Input:** Patient transcripts (plain text or JSON)
+- **Input:** Patient transcripts (with optional filtering)
 - **Output:** 768-dim embeddings per session
 - **Location:** `src/phase2_text/`, `cluster_scripts/phase2/`
-- **Status:** Awaiting implementation
+- **Status:** ✅ Complete
 
 **Documentation:** 
 - [Phase 2 Guide](docs/README_PHASE2.md)
@@ -301,4 +302,4 @@ sbatch cluster_scripts/phase2/extract_text_embeddings.sbatch
 ---
 
 **Last Updated:** February 6, 2026  
-**Status:** Phase 1 Complete ✅, Phase 2 Audio Complete ✅, Phase 2 Text Planned 📋
+**Status:** Phase 1 Complete ✅, Phase 2 Audio Complete ✅, Phase 2 Text Complete ✅

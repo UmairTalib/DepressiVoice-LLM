@@ -15,7 +15,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=False):
+def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=False, skip_filtering=False):
     """
     Extract MentalRoBERTa embeddings with 8-second windowing.
     
@@ -25,6 +25,7 @@ def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=Fa
         output_dir: Path to save embeddings
         model: Loaded SentenceTransformer model
         verbose: Print debug info
+        skip_filtering: If True, use all transcript words without RTTM/Role checks
     
     Returns:
         tuple: (embeddings_tensor, num_windows, num_words)
@@ -37,7 +38,6 @@ def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=Fa
     # 1. Load audio to determine session duration and num_windows
     audio_file = session_dir / "patient_audio.wav"
     if not audio_file.exists():
-        # Fallback: check if audio is in top-level output dir (sometimes the case)
         raise FileNotFoundError(f"Audio file not found in {session_dir}")
     
     audio, sr = librosa.load(str(audio_file), sr=16000)
@@ -47,48 +47,48 @@ def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=Fa
     if verbose:
         print(f"Session {session_id}: Duration={duration_sec:.2f}s, Windows={num_windows}")
     
-    # Load Roles
-    roles_file = session_dir / "roles.json"
-    if not roles_file.exists():
-        raise FileNotFoundError(f"Roles file not found: {roles_file}")
-    
-    with open(roles_file) as f:
-        roles_data = json.load(f)
-    
-    # Find Patient Speaker ID
-    patient_speaker_id = None
-    for spk, role in roles_data.get("roles", {}).items():
-        if role.upper() == "PATIENT":
-            patient_speaker_id = spk
-            break
-    
-    if not patient_speaker_id:
-        raise ValueError(f"Could not find PATIENT role in {roles_file}")
-
-    if verbose:
-        print(f"  Patient ID: {patient_speaker_id}")
-
-    # Load RTTM (Patient Intervals)
-    rttm_file = session_dir / f"{session_id}.rttm"
-    if not rttm_file.exists():
-        # Fallback: search pattern
-        rttm_files = list(session_dir.glob("*.rttm"))
-        if rttm_files:
-            rttm_file = rttm_files[0]
-        else:
-            raise FileNotFoundError(f"RTTM file not found in {session_dir}")
-
     patient_intervals = []
-    with open(rttm_file) as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) >= 8 and parts[7] == patient_speaker_id:
-                start = float(parts[3])
-                duration = float(parts[4])
-                patient_intervals.append((start, start + duration))
     
-    patient_intervals.sort() # Ensure sorted
-    
+    # 2. Logic for filtering (skip if skip_filtering=True)
+    if not skip_filtering:
+        # Load Roles (Optional Fallback)
+        roles_file = session_dir / "roles.json"
+        patient_speaker_id = None
+        if roles_file.exists():
+            with open(roles_file) as f:
+                roles_data = json.load(f)
+            
+            for spk, role in roles_data.get("roles", {}).items():
+                if role.upper() == "PATIENT":
+                    patient_speaker_id = spk
+                    break
+            
+            if patient_speaker_id and verbose:
+                print(f"  Patient ID: {patient_speaker_id}")
+        
+        # Load RTTM (Optional Fallback)
+        if patient_speaker_id:
+            rttm_file = session_dir / f"{session_id}.rttm"
+            if not rttm_file.exists():
+                rttm_files = list(session_dir.glob("*.rttm"))
+                if rttm_files:
+                    rttm_file = rttm_files[0]
+                else:
+                    rttm_file = None
+            
+            if rttm_file:
+                with open(rttm_file) as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) >= 8 and parts[7] == patient_speaker_id:
+                            start = float(parts[3])
+                            duration = float(parts[4])
+                            patient_intervals.append((start, start + duration))
+                patient_intervals.sort()
+    else:
+        if verbose:
+            print(f"  Bypassing Roles/RTTM filtering as requested (--skip_filtering)")
+
     # Load Transcript (Words)
     transcript_file = session_dir / "transcript.json"
     if not transcript_file.exists():
@@ -97,47 +97,42 @@ def extract_text_embeddings(session_id, input_dir, output_dir, model, verbose=Fa
     with open(transcript_file) as f:
         data = json.load(f)
     
-    # Flatten transcript to word list
     all_words = []
     if isinstance(data, dict):
-        # WhisperX format
         if "segments" in data:
             for seg in data["segments"]:
                 if "words" in seg:
                     all_words.extend(seg["words"])
                 else:
-                    # Fallback if no word-level timestamps (unlikely for WhisperX)
                     all_words.append({
                         "word": seg["text"],
                         "start": seg["start"],
                         "end": seg["end"]
                     })
     
-    # Filter words: Must overlap with a patient interval
+    # Filter words: Must overlap with a patient interval (if intervals exist and filtering enabled)
     patient_words = []
     
-    # Optimization: Use pointer for intervals since both are sorted-ish
-    # But simple checking is fast enough for <1hr audio
-    for w in all_words:
-        w_start = w["start"]
-        w_end = w["end"]
-        
-        is_patient = False
-        for (p_start, p_end) in patient_intervals:
-            # Check overlap
-            if max(w_start, p_start) < min(w_end, p_end):
-                is_patient = True
-                break
+    if not skip_filtering and patient_intervals:
+        for w in all_words:
+            w_start = w["start"]
+            w_end = w["end"]
             
-            # Optimization: if interval is way past word, stop
-            if p_start > w_end:
-                 break
-        
-        if is_patient:
-            patient_words.append(w)
+            is_patient = False
+            for (p_start, p_end) in patient_intervals:
+                if max(w_start, p_start) < min(w_end, p_end):
+                    is_patient = True
+                    break
+                if p_start > w_end:
+                     break
+            if is_patient:
+                patient_words.append(w)
+    else:
+        # Fallback or Skip: keep all words
+        patient_words = all_words
 
     if verbose:
-        print(f"  Filtered {len(patient_words)}/{len(all_words)} words as PATIENT")
+        print(f"  Result: Keeping {len(patient_words)}/{len(all_words)} words")
 
     # 3. Segment text into 8-second windows
     embeddings = []
@@ -206,6 +201,11 @@ def main():
     
     args = parser.parse_args()
     
+    # Add flag to skip filtering if source is already patient-only
+    parser.add_argument("--skip_filtering", action="store_true", help="Skip RTTM/Role filtering (use all words)")
+    # Re-parse to handle new argument
+    args = parser.parse_args()
+
     # Set HF token if provided
     if args.hf_token:
         os.environ["HF_TOKEN"] = args.hf_token
@@ -219,12 +219,15 @@ def main():
     
     # Extract embeddings
     try:
+        # Pass skip_filtering to the extraction function
+        # (Need to update the function signature too, or just check args here)
         embeddings, num_windows, num_words = extract_text_embeddings(
             args.session_id, 
             args.input_dir, 
             args.output_dir, 
             model,
-            verbose=args.verbose
+            verbose=args.verbose,
+            skip_filtering=args.skip_filtering
         )
         
         print(f"✓ Session {args.session_id}: Shape={embeddings.shape}, Words={num_words}")

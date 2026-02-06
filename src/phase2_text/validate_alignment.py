@@ -27,8 +27,8 @@ def validate_alignment(audio_dir, text_dir, session_ids=None, verbose=False):
     
     # Get session IDs
     if session_ids is None:
-        text_files = list(text_path.glob("*_embeddings.pt"))
-        session_ids = [f.stem.replace("_embeddings", "") for f in text_files]
+        text_files = list(text_path.glob("*_features.pt"))
+        session_ids = [f.stem.replace("_features", "") for f in text_files]
     
     results = {
         "total": len(session_ids),
@@ -44,7 +44,7 @@ def validate_alignment(audio_dir, text_dir, session_ids=None, verbose=False):
     
     for sid in tqdm(session_ids):
         audio_file = audio_path / f"{sid}_features.pt"
-        text_file = text_path / f"{sid}_embeddings.pt"
+        text_file = text_path / f"{sid}_features.pt"
         
         # Check file existence
         if not audio_file.exists():
@@ -63,8 +63,14 @@ def validate_alignment(audio_dir, text_dir, session_ids=None, verbose=False):
         
         # Load and check shapes
         try:
-            audio_feat = torch.load(audio_file)
-            text_emb = torch.load(text_file)
+            # Load features (force CPU to avoid CUDA errors on login node)
+            try:
+                audio_feat = torch.load(audio_file, map_location='cpu', weights_only=True)
+                text_emb = torch.load(text_file, map_location='cpu', weights_only=True)
+            except Exception as e:
+                print(f"✗ Session {sid}: Error loading files - {e}")
+                results["failed"] += 1
+                continue
             
             audio_windows = audio_feat.shape[0]
             text_windows = text_emb.shape[0]

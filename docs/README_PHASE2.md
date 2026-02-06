@@ -1,6 +1,6 @@
 # Phase 2: Feature Extraction (Audio + Text)
 
-**Status:** 🚧 IN PROGRESS  
+**Status:** ✅ COMPLETE
 **Inputs:** Phase 1 outputs (patient audio + transcripts)  
 **Outputs:** WaveLM audio features + Mental-RoBERTa text embeddings  
 **Next:** [Phase 3 - Multimodal Fusion](README_PHASE3.md)
@@ -144,19 +144,17 @@ Extract semantic embeddings from patient transcripts using Mental-RoBERTa (fine-
 
 ### Location
 
-**Source Code:** `src/phase2_text/` (TO BE CREATED)
+**Source Code:** `src/phase2_text/`
 ```
 src/phase2_text/
-├── __init__.py
-├── extract_embeddings.py     # Mental-RoBERTa extraction
-└── dataset.py                 # Text dataset loader
+├── extract_embeddings.py     # Mental-RoBERTa extraction (8s windowing)
+└── validate_alignment.py     # Feature alignment verification
 ```
 
 **Cluster Scripts:** `cluster_scripts/phase2/`
 ```
 cluster_scripts/phase2/
-├── extract_text_embeddings.sbatch           # Batch extraction
-└── extract_text_embeddings_sequential.sbatch  # Sequential mode
+└── extract_text_embeddings.sbatch           # Batch extraction (with --skip_filtering for robustness)
 ```
 
 ### Text Input Options
@@ -390,4 +388,4 @@ After Phase 2 completion:
 ---
 
 **Last Updated:** February 5, 2026  
-**Status:** Ready for Execution 🚀
+**Status:** Phase 1 Complete ✅, Phase 2 Audio Complete ✅, Phase 2 Text Complete ✅
