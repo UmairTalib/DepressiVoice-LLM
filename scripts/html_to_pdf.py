@@ -70,8 +70,8 @@ def html_to_pdf(html_file, pdf_file):
         return False
 
 if __name__ == "__main__":
-    html_file = "docs/reports/Phase2_Technical_Report.html"
-    pdf_file = "docs/reports/Phase2_Technical_Report.pdf"
+    html_file = "docs/reports/Phase2B_Technical_Report.html"
+    pdf_file = "docs/reports/Phase2B_Technical_Report.pdf"
     
     success = html_to_pdf(html_file, pdf_file)
     
