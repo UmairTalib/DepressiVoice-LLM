@@ -9,9 +9,9 @@ from pathlib import Path
 
 def convert_md_to_pdf():
     # Paths
-    md_file = Path("docs/reports/Phase2_Technical_Report.md")
-    pdf_file = Path("docs/reports/Phase2_Technical_Report.pdf")
-    html_file = Path("docs/reports/Phase2_Technical_Report.html")
+    md_file = Path("docs/reports/Phase2B_Text_Embedding_Report.md")
+    pdf_file = Path("docs/reports/Phase2B_Technical_Report.pdf")
+    html_file = Path("docs/reports/Phase2B_Technical_Report.html")
     
     print(f"Converting {md_file} to PDF...")
     
