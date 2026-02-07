@@ -1,0 +1,46 @@
+#!/bin/bash
+#SBATCH --job-name=fusion_v11_handover
+#SBATCH --output=experiments/fusion_v11_handover/slurm_%j.out
+#SBATCH --error=experiments/fusion_v11_handover/slurm_%j.err
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --time=12:00:00
+
+# Create experiment directory
+mkdir -p experiments/fusion_v11_handover/
+
+# Load environment logic
+module load miniconda3/4.9.2
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null || source $CONDA_PREFIX/etc/profile.d/conda.sh 2>/dev/null
+conda activate depressivoice-phase1
+
+# Move to Project Root
+cd $HOME/DepressiVoice-LLM
+
+# Environment Variables
+export HF_TOKEN="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"
+export TORCHAUDIO_BACKEND="soundfile"
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+export PYTHONUNBUFFERED=1
+
+echo "🚀 Starting Phase 3.5 Handover Training: fusion_v11 (Co-Attention & Gated Fusion)"
+echo "🎯 Goal: Validate v11 architecture and generate explainability maps (z-gates)."
+echo "⚙️ Config: pos_weight=2.5, Dropout=0.4 (High Regularization per doc)"
+echo "📅 Date: $(date)"
+
+# Configuration: Fusion V11
+# - Dropout: 0.4 (High Regularization)
+# - Pos Weight: 2.5
+# - Batch Size: 32 (per doc recommendation/memory fit?) - v10 sb used 16, train.py default 32. 
+#   Let's stick to train.py default or explicit.
+# - Epochs: 50 (Sufficient for convergence)
+
+python src/phase3_fusion_v11/train.py \
+    --root_dir $HOME/DepressiVoice-LLM/ \
+    --save_dir experiments/fusion_v11_handover/ 
+
+echo "✅ Training Job Complete."

@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH --job-name=val_v11_plot
+#SBATCH --output=experiments/fusion_v11_handover/val_plot_slurm_%j.out
+#SBATCH --error=experiments/fusion_v11_handover/val_plot_slurm_%j.err
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --time=00:30:00
+
+# Load environment
+module load miniconda3/4.9.2
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null || source $CONDA_PREFIX/etc/profile.d/conda.sh 2>/dev/null
+conda activate depressivoice-phase1
+
+cd $HOME/DepressiVoice-LLM
+
+echo "Running Validation (Re-plot)..."
+# Explicitly using absolute path for --log_path as found by ls
+python src/phase3_fusion_v11/validate_v11.py \
+    --root_dir ./ \
+    --exp_dir experiments/fusion_v11_handover/ \
+    --log_path /home/g755389/experiments/fusion_v11_handover/slurm_11081456.out \
+    --save_dir experiments/fusion_v11_handover/validation_plots/
+
+echo "✅ Plotting Complete."

@@ -70,18 +70,23 @@ def html_to_pdf(html_file, pdf_file):
         return False
 
 if __name__ == "__main__":
-    html_file = "docs/reports/Phase2B_Technical_Report.html"
-    pdf_file = "docs/reports/Phase2B_Technical_Report.pdf"
+    import argparse
     
-    success = html_to_pdf(html_file, pdf_file)
+    parser = argparse.ArgumentParser(description="Convert HTML to PDF")
+    parser.add_argument("input_html", nargs='?', default="docs/reports/Phase2B_Technical_Report.html", help="Input HTML file path")
+    parser.add_argument("output_pdf", nargs='?', default="docs/reports/Phase2B_Technical_Report.pdf", help="Output PDF file path")
+    
+    args = parser.parse_args()
+    
+    success = html_to_pdf(args.input_html, args.output_pdf)
     
     if not success:
         print("\n" + "="*60)
         print("ALTERNATIVE OPTION:")
         print("="*60)
-        print(f"The HTML report is ready at: {html_file}")
+        print(f"The HTML report is ready at: {args.input_html}")
         print("\nTo create PDF manually:")
         print("  1. Open the HTML file in Chrome/Safari")
         print("  2. Use Cmd+P to print")
         print("  3. Select 'Save as PDF'")
-        print("  4. Save to docs/reports/Phase2_Technical_Report.pdf")
+        print(f"  4. Save to {args.output_pdf}")
