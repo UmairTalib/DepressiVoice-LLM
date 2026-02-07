@@ -11,8 +11,9 @@ from tqdm import tqdm
 def train():
     parser = argparse.ArgumentParser(description="Phase 3: Fusion Network Training")
     parser.add_argument("--audio_dir", type=str, default="/home/g755389/DepressiVoice-LLM/data/03_features/audio_embeddings_clean/")
-    parser.add_argument("--text_dir", type=str, default="/home/g755389/DepressiVoice-LLM/data/03_features/text_embeddings_seq/")
+    parser.add_argument("--text_dir", type=str, default="/home/g755389/DepressiVoice-LLM/data/phase2_clean/text_embeddings_clean/")
     parser.add_argument("--labels_csv", type=str, default="/home/g755389/DepressiVoice-LLM/data/01_raw/detailed_lables.csv")
+    parser.add_argument("--leakage_json", type=str, default="/home/g755389/DepressiVoice-LLM/docs/reports/ellie_leakage_audit.json")
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--epochs", type=int, default=50)
@@ -23,8 +24,21 @@ def train():
     parser.add_argument("--weight_decay", type=float, default=0.05)
     parser.add_argument("--max_audio_len", type=int, default=5000)
     parser.add_argument("--max_text_len", type=int, default=1000)
+    parser.add_argument("--pos_weight", type=float, default=3.17)
     parser.add_argument("--output_dir", type=str, default="checkpoints/fusion_v1")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+
+    # Reproducibility
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+    import numpy as np
+    import random
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     os.makedirs(args.output_dir, exist_ok=True)
     
@@ -36,8 +50,8 @@ def train():
     logger.info(f"Using device: {device}")
 
     # Datasets & Loaders
-    train_dataset = MultimodalDAICDataset(args.audio_dir, args.text_dir, args.labels_csv, subset='train', max_audio_len=args.max_audio_len, max_text_len=args.max_text_len)
-    dev_dataset = MultimodalDAICDataset(args.audio_dir, args.text_dir, args.labels_csv, subset='dev', max_audio_len=args.max_audio_len, max_text_len=args.max_text_len)
+    train_dataset = MultimodalDAICDataset(args.audio_dir, args.text_dir, args.labels_csv, leakage_json=args.leakage_json, subset='train', max_audio_len=args.max_audio_len, max_text_len=args.max_text_len)
+    dev_dataset = MultimodalDAICDataset(args.audio_dir, args.text_dir, args.labels_csv, leakage_json=args.leakage_json, subset='dev', max_audio_len=args.max_audio_len, max_text_len=args.max_text_len)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=multimodal_collate_fn)
     dev_loader = DataLoader(dev_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=multimodal_collate_fn)
@@ -46,8 +60,7 @@ def train():
     model = FusionModel(d_model=args.d_model, nhead=args.nhead, num_layers=args.num_layers, dropout=args.dropout).to(device)
     
     # Loss Strategy: Weighted BCE
-    # Imbalance 1:3.17 (24% Depressed)
-    pos_weight = torch.tensor([3.17]).to(device)
+    pos_weight = torch.tensor([args.pos_weight]).to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -102,7 +115,7 @@ def train():
         avg_dev_loss = dev_loss / len(dev_loader)
         accuracy = correct / total if total > 0 else 0
         
-        logger.info(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f} | Dev Loss: {avg_dev_loss:.4f} | Acc: {accuracy*.100:.2f}%")
+        logger.info(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f} | Dev Loss: {avg_dev_loss:.4f} | Acc: {accuracy*100:.2f}%")
         
         scheduler.step(avg_dev_loss)
         
