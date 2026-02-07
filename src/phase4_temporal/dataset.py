@@ -1,79 +1,106 @@
 import os
 import torch
-import pandas as pd
-import numpy as np
 from torch.utils.data import Dataset
+import glob
+
+import pandas as pd
 
 class TemporalDataset(Dataset):
-    def __init__(self, data_dir, labels_csv, augment=False):
+    def __init__(self, data_dir, labels_path="data/labels/master_labels_v7.csv", split_ids=None, augment=False):
         """
         Args:
-            data_dir: Directory containing {id}_fused.pt files
-            labels_csv: Path to master_labels_v7.csv
-            augment: If True, applies slicing augmentation
+            data_dir: Path to directory containing *_fused.pt files
+            labels_path: Path to master labels CSV
+            split_ids: List of patient IDs to include
+            augment: If True, split each sequence into two halves
         """
         self.data_dir = data_dir
-        self.labels_df = pd.read_csv(labels_csv)
-        self.patients = self.labels_df['Participant'].astype(str).tolist()
         self.augment = augment
+        self.files = glob.glob(os.path.join(data_dir, "*_fused.pt"))
         
-        # Pre-filter patients that actually have feature files
-        self.available_patients = []
-        for p in self.patients:
-            if os.path.exists(os.path.join(data_dir, f"{p}_fused.pt")):
-                self.available_patients.append(p)
-            elif os.path.exists(os.path.join(data_dir, f"{p}_P_fused.pt")):
-                self.available_patients.append(f"{p}_P")
+        # Load Labels
+        try:
+            self.labels_df = pd.read_csv(labels_path)
+            self.labels_df['Participant_ID'] = self.labels_df['Participant_ID'].astype(str)
+            self.labels_dict = self.labels_df.set_index('Participant_ID')[['PHQ_Binary', 'PHQ_Score_Norm']].to_dict('index')
+        except Exception as e:
+            print(f"⚠️ Error loading labels: {e}")
+            self.labels_dict = {}
+
+        if split_ids is not None:
+            filtered = []
+            pid_set = set([str(p) for p in split_ids])
+            for f in self.files:
+                pid = os.path.basename(f).split('_')[0]
+                if pid in pid_set:
+                    filtered.append(f)
+            self.files = filtered
+            print(f"Dataset: Filtered to {len(self.files)} files based on provided IDs.")
+        else:
+            print(f"Dataset: Loaded all {len(self.files)} files from {data_dir}.")
+
+        if self.augment:
+            self.samples = []
+            for f in self.files:
+                self.samples.append((f, 0))
+                self.samples.append((f, 1))
+        else:
+            self.samples = [(f, None) for f in self.files]
 
     def __len__(self):
-        return len(self.available_patients)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        p_id = self.available_patients[idx]
-        actual_pid = p_id.replace("_P", "")
+        path, half = self.samples[idx]
+        pid = os.path.basename(path).split('_')[0]
         
         # Load features
-        feat_path = os.path.join(self.data_dir, f"{p_id}_fused.pt")
-        data = torch.load(feat_path, map_location='cpu')
+        data = torch.load(path, map_location='cpu')
+        fused = data['fused_embedding'].float()
         
-        # MTL Support: Get binary label and PHQ score
-        row = self.labels_df[self.labels_df['Participant'].astype(str) == actual_pid].iloc[0]
-        label = int(row['PHQ_Binary'])
-        phq_score = float(row['PHQ_Score_Norm']) # Normalized 0-1
+        # Get labels from master_labels_v7
+        if pid in self.labels_dict:
+            label = torch.tensor(self.labels_dict[pid]['PHQ_Binary'], dtype=torch.float)
+            phq_score = torch.tensor(self.labels_dict[pid]['PHQ_Score_Norm'], dtype=torch.float)
+        else:
+            # Fallback to file's embedded label if missing from CSV
+            label = torch.tensor(data.get('label', 0), dtype=torch.float)
+            phq_score = torch.tensor(0.0, dtype=torch.float)
         
-        features = data['fused_embedding'] # [T, 256]
-        
-        if self.augment:
-            # Slicing augmentation (v4): Take first or second half
-            mid = features.shape[0] // 2
-            if np.random.rand() > 0.5:
-                features = features[:mid]
-            else:
-                features = features[mid:]
-        
+        if self.augment and half is not None:
+            mid = fused.shape[0] // 2
+            fused = fused[:mid] if half == 0 else fused[mid:]
+            if fused.shape[0] == 0:
+                fused = data['fused_embedding'].float()
+
         return {
-            'features': features,
+            'features': fused,
             'label': label,
             'phq_score': phq_score,
-            'patient_id': p_id
+            'id': f"{pid}_{half if half is not None else 'full'}"
         }
 
 def pad_collate(batch):
-    features = [b['features'] for b in batch]
-    labels = torch.tensor([b['label'] for b in batch], dtype=torch.float32)
-    phq_scores = torch.tensor([b['phq_score'] for b in batch], dtype=torch.float32)
+    """
+    Collate function to handle variable length sequences with padding.
+    """
+    features = [item['features'] for item in batch]
+    labels = torch.stack([item['label'] for item in batch])
+    phq_scores = torch.stack([item['phq_score'] for item in batch])
+    ids = [item['id'] for item in batch]
     
-    # Pad sequences: [Batch, Max_T, 256]
-    padded_features = torch.nn.utils.rnn.pad_sequence(features, batch_first=True)
+    # Pad sequences
+    lengths = torch.tensor([f.shape[0] for f in features])
+    features_padded = torch.nn.utils.rnn.pad_sequence(features, batch_first=True, padding_value=0.0)
     
-    # Create mask for Transformer (True where padding exists)
-    mask = torch.zeros(padded_features.shape[:2], dtype=torch.bool)
-    for i, feat in enumerate(features):
-        mask[i, len(feat):] = True
-        
+    # Create mask (True = Padding)
+    max_len = features_padded.shape[1]
+    mask = torch.arange(max_len)[None, :] >= lengths[:, None] 
+    
     return {
-        'features': padded_features,
-        'mask': mask,
-        'labels': labels,
-        'phq_scores': phq_scores
+        'features': features_padded, # [B, T_max, 256]
+        'mask': mask,                # [B, T_max] (True means padded/ignore)
+        'labels': labels,            # [B]
+        'phq_scores': phq_scores,    # [B]
+        'lengths': lengths           # [B]
     }

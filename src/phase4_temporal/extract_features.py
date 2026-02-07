@@ -1,64 +1,136 @@
 import os
 import torch
-import argparse
+import torch.nn as nn
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-from glob import glob
-from ..phase3_fusion_v11.models import GatedMultimodalFusionV11
+import argparse
 
-def extract_session_features(args):
+# Import Phase 3.5 components
+from src.phase3_fusion_v11.models import FusionV11Classifier
+from src.phase3_fusion_v11.dataset import DepressionDataset
+
+def extract_features(checkpoint_path, data_dir, output_dir, device='cuda'):
     """
-    Bridge between Phase 3.5 and Phase 4.
-    Runs inference on Fusion v11 to extract session-level sequences.
+    Extracts fused embeddings (time-series) and gate values from the frozen Phase 3.5 model.
     """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Load Phase 3.5 Model
-    model = GatedMultimodalFusionV11(audio_dim=1024, text_dim=768, shared_dim=256).to(device)
-    model.load_state_dict(torch.load(args.checkpoint, map_location=device))
+    # 1. Setup
+    device = torch.device(device if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    # 2. Load Model
+    print(f"Loading checkpoint from {checkpoint_path}...")
+    # Initialize with same params as trained model
+    model = FusionV11Classifier(
+        audio_dim=1024, 
+        text_dim=768, 
+        shared_dim=256, 
+        dropout=0.0 # No dropout for inference/extraction
+    ).to(device)
+    
+    try:
+        state_dict = torch.load(checkpoint_path, map_location=device)
+        # Handle if state_dict was saved as 'model_state_dict' or raw
+        if 'model_state_dict' in state_dict:
+            state_dict = state_dict['model_state_dict']
+            
+        model.load_state_dict(state_dict)
+        print("Model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return
+
     model.eval()
     
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    # Logic to find all session data in data/phase2_clean/
-    session_dirs = glob(os.path.join(args.data_root, "data/phase2_clean/*"))
-    
-    print(f"🌉 Extracting session features for {len(session_dirs)} sessions...")
+    # 3. Prepare Patient List
+    # We load metadata to get the list of participants and their splits
+    try:
+        import pandas as pd
+        labels_path = os.path.join(data_dir, 'data/01_raw/detailed_lables.csv')
+        df = pd.read_csv(labels_path)
+    except Exception as e:
+        print(f"Error loading metadata: {e}")
+        return
+
+    # Directories
+    audio_dir = os.path.join(data_dir, 'data/phase2_clean/audio_embeddings_normalized')
+    text_dir = os.path.join(data_dir, 'data/phase2_clean/text_embeddings_clean')
+
+    print(f"Starting extraction for {len(df)} patients...")
     
     with torch.no_grad():
-        for session_path in tqdm(session_dirs):
-            p_id = os.path.basename(session_path)
+        for idx, row in tqdm(df.iterrows(), total=len(df)):
+            pid = str(row['Participant'])
+            label = int(row['Depression_label'])
             
-            # Load window-level embeddings
-            # Assuming files like {pid}_audio_wavlm.pt and {pid}_text_roberta.pt
-            audio_path = os.path.join(session_path, f"{p_id}_audio_wavlm.pt")
-            text_path = os.path.join(session_path, f"{p_id}_text_roberta.pt")
+            # Paths
+            audio_path = os.path.join(audio_dir, f"{pid}_features.pt")
+            text_path = os.path.join(text_dir, f"{pid}_features.pt")
             
-            if not (os.path.exists(audio_path) and os.path.exists(text_path)):
+            if not os.path.exists(audio_path) or not os.path.exists(text_path):
                 continue
                 
-            audio_feat = torch.load(audio_path, map_location=device) # [T, 1024]
-            text_feat = torch.load(text_path, map_location=device)   # [T, 768]
-            
-            # Run Fusion
-            # Some sessions might have slight shape mismatches due to windowing; clip to min length
-            min_len = min(audio_feat.shape[0], text_feat.shape[0])
-            audio_feat = audio_feat[:min_len]
-            text_feat = text_feat[:min_len]
-            
-            fused, gate_vals = model(audio_feat, text_feat) # [T, 256], [T, 1]
-            
-            # Save for Phase 4
-            torch.save({
-                'fused_embedding': fused.cpu(),
-                'gate_values': gate_vals.cpu(),
-                'patient_id': p_id
-            }, os.path.join(args.output_dir, f"{p_id}_fused.pt"))
+            try:
+                # Load full tensors
+                audio = torch.load(audio_path, map_location=device).float()
+                text = torch.load(text_path, map_location=device).float()
+                
+                # Preprocessing (similar to dataset.py)
+                # Handle 3D Audio: [T, Frames, D] -> [T, D]
+                if audio.dim() == 3:
+                    if audio.shape[1] == 1:
+                        audio = audio.squeeze(1)
+                    else:
+                        audio = audio.mean(dim=1)
+                
+                # Handle 3D Text
+                if text.dim() == 3 and text.shape[1] == 1:
+                    text = text.squeeze(1)
+                
+                # Ensure same length (just in case)
+                min_t = min(audio.shape[0], text.shape[0])
+                audio = audio[:min_t].unsqueeze(0) # [1, T, 1024]
+                text = text[:min_t].unsqueeze(0)   # [1, T, 768]
+                
+                # Sanitization: Force Audio[t] = 0.0 if Text[t] is "masked" (all zeros)
+                is_silence = torch.all(torch.abs(text) < 1e-6, dim=-1) # [1, T]
+                audio = audio.clone()
+                audio[is_silence] = 0.0
+                
+                # Run Fusion
+                fused_seq, gate_vals = model.fusion(audio, text)
+                
+                # Save
+                fused_seq = fused_seq.squeeze(0).cpu()
+                gate_vals = gate_vals.squeeze(0).cpu()
+                
+                save_path = os.path.join(output_dir, f"{pid}_fused.pt")
+                torch.save({
+                    'fused_embedding': fused_seq, # [T, 256]
+                    'gate_values': gate_vals,     # [T, 1]
+                    'label': label
+                }, save_path)
+                
+            except RuntimeError as e:
+                if "out of memory" in str(e):
+                    print(f"OOM for {pid}. Sequence length: {audio.shape[1]}")
+                    torch.cuda.empty_cache()
+                else:
+                    print(f"Error extracting {pid}: {e}")
+            except Exception as e:
+                print(f"Error processing {pid}: {e}")
+
+    print("Extraction Complete.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", type=str, required=True)
-    parser.add_argument("--data_root", type=str, default=".")
-    parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--checkpoint", type=str, default="experiments/fusion_v11_handover/best_fusion_v11.pth")
+    parser.add_argument("--data_root", type=str, default="/Users/umairtalib/DepressiVoice-LLM")
+    parser.add_argument("--output_dir", type=str, default="data/phase4_features")
     args = parser.parse_args()
     
-    extract_session_features(args)
+    extract_features(args.checkpoint, args.data_root, args.output_dir)
