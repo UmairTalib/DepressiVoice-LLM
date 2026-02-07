@@ -116,7 +116,11 @@ class FusionV11Classifier(nn.Module):
         """
         
         # Automatically generate masks if not provided
+        # Assuming Data is padded with 0s? 
+        # Or just rely on what Dataset provides passed in as args. (Currently dataset.py doesn't return masks explicitly in dict, need to add logic)
+        # Let's infer mask from data if None
         if text_mask is None:
+             # Heuristic: If text vector is all zeros, it's padding
             text_mask = (text.abs().sum(dim=-1) == 0)
             
         if audio_mask is None:
@@ -126,10 +130,18 @@ class FusionV11Classifier(nn.Module):
         fused_seq, z = self.fusion(audio, text, audio_mask, text_mask) # [Batch, T, Shared]
         
         # Pooling
+        # Mean Pool over Time (ignoring masked steps)
+        # mask: True=Ignored. 
+        # numeric_mask: 1=Valid, 0=Ignored
         numeric_mask = text_mask.logical_not().float().unsqueeze(-1) # [Batch, T, 1]
+        
+        # Sum valid steps
         sum_pooled = (fused_seq * numeric_mask).sum(dim=1) # [Batch, Shared]
+        
+        # Count valid steps
         count_valid = numeric_mask.sum(dim=1) # [Batch, 1]
         count_valid = count_valid.clamp(min=1.0) # Avoid div by zero
+        
         pooled = sum_pooled / count_valid
         
         # Inject Scalars
