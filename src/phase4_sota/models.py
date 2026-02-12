@@ -24,7 +24,7 @@ class CrossModalTransformerAggregator(nn.Module):
     Captures global context and boosts precision through Bi-directional Co-Attention.
     Input: [Batch, Time, 256] (Fused embeddings from Phase 3.5)
     """
-    def __init__(self, input_dim=256, d_model=128, nhead=4, num_layers=2, dropout=0.3, temperature=1.0):
+    def __init__(self, input_dim=256, d_model=256, nhead=8, num_layers=2, dropout=0.3, temperature=1.0):
         super(CrossModalTransformerAggregator, self).__init__()
         self.temperature = temperature
         self.d_model = d_model

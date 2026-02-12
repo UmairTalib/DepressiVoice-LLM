@@ -49,7 +49,8 @@ echo "🧠 Step 2: Training SOTA Temporal Model"
 python -m src.phase4_sota.train \
     --data_dir data/phase4_sota_features \
     --output_dir experiments/phase4_v11_PRO_SOTA \
-    --epochs 100 \
+    --epochs 200 \
+    --lr 2e-5 \
     --model_type transformer
 
 if [ $? -ne 0 ]; then

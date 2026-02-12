@@ -67,7 +67,7 @@ def train_phase4(
     # Early Stopping state
     best_metric = 0.0
     patience_counter = 0
-    patience = 15
+    patience = 25
     
     # 4. Training Loop
     for epoch in range(epochs):
@@ -176,8 +176,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="data/phase4_sota_features")
     parser.add_argument("--output_dir", type=str, default="experiments/phase4_v11_PRO_SOTA")
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--model_type", type=str, default="transformer", choices=["lstm", "transformer"])
     args = parser.parse_args()
     train_phase4(args.data_dir, args.output_dir, epochs=args.epochs, lr=args.lr, model_type=args.model_type)
