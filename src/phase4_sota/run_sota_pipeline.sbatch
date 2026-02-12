@@ -10,9 +10,12 @@
 #SBATCH --error=sota_%j.err
 #SBATCH --output=sota_%j.out
 
+# Navigation
+cd /home/g755389/DepressiVoice-LLM
+
 # Setup Environment
 module load miniconda3/4.9.2
-source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null
+eval "$(/cm/shared/omni/apps/miniconda3/bin/conda shell.bash hook)"
 conda activate depressivoice-phase1
 
 # Environment Variables
@@ -22,6 +25,7 @@ export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 echo "🚀 Starting Phase 4 SOTA Pipeline (v11-PRO)"
 echo "📅 Date: $(date)"
 echo "🖥️ Node: $SLURMD_NODENAME"
+echo "📂 Workdir: $(pwd)"
 
 # 1. SOTA Feature Extraction
 echo "-----------------------------------"
