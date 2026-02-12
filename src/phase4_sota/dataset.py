@@ -6,13 +6,14 @@ import glob
 import pandas as pd
 
 class TemporalDataset(Dataset):
-    def __init__(self, data_dir, labels_path="data/labels/master_labels_v7.csv", split_ids=None, augment=False):
+    def __init__(self, data_dir, labels_path="data/labels/master_labels_v7.csv", split_ids=None, augment=False, balance=False):
         """
         Args:
             data_dir: Path to directory containing *_fused.pt files
             labels_path: Path to master labels CSV
             split_ids: List of patient IDs to include
             augment: If True, split each sequence into two halves
+            balance: If True, oversample the minority class to balance training
         """
         self.data_dir = data_dir
         self.augment = augment
@@ -46,6 +47,36 @@ class TemporalDataset(Dataset):
                 self.samples.append((f, 1))
         else:
             self.samples = [(f, None) for f in self.files]
+
+        # --- Random Over-Sampling (ROS) for Class Balance ---
+        if balance:
+            pos_samples = []
+            neg_samples = []
+            
+            for path, half in self.samples:
+                pid = os.path.basename(path).split('_')[0]
+                label = self.labels_dict.get(pid, {}).get('PHQ_Binary', 0)
+                if label == 1:
+                    pos_samples.append((path, half))
+                else:
+                    neg_samples.append((path, half))
+            
+            if len(pos_samples) > 0 and len(neg_samples) > 0:
+                print(f"⚖️ Balancing Classes: {len(pos_samples)} Pos, {len(neg_samples)} Neg")
+                max_count = max(len(pos_samples), len(neg_samples))
+                
+                # Oversample minority to match majority
+                import random
+                if len(pos_samples) < max_count:
+                    extra = random.choices(pos_samples, k=max_count - len(pos_samples))
+                    pos_samples.extend(extra)
+                elif len(neg_samples) < max_count:
+                    extra = random.choices(neg_samples, k=max_count - len(neg_samples))
+                    neg_samples.extend(extra)
+                
+                self.samples = pos_samples + neg_samples
+                random.shuffle(self.samples)
+                print(f"📊 Balanced Dataset Size: {len(self.samples)}")
 
     def __len__(self):
         return len(self.samples)

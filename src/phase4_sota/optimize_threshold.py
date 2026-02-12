@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import precision_recall_curve, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import precision_recall_curve, f1_score, precision_score, recall_score, roc_auc_score, fbeta_score
 from torch.utils.data import DataLoader
 import argparse
 
@@ -32,8 +32,8 @@ def optimize(data_dir, model_path, output_plot="experiments/phase4_temporal/pr_c
     else:
         model = CrossModalTransformerAggregator(
             input_dim=256,
-            d_model=128,
-            nhead=4,
+            d_model=256,
+            nhead=8,
             num_layers=2,
             dropout=0.0
         ).to(device)
@@ -68,17 +68,20 @@ def optimize(data_dir, model_path, output_plot="experiments/phase4_temporal/pr_c
     for t in thresholds:
         preds = (all_probs >= t).astype(int)
         f1 = f1_score(all_labels, preds, zero_division=0)
+        f2 = fbeta_score(all_labels, preds, beta=2, zero_division=0)
         prec = precision_score(all_labels, preds, zero_division=0)
         rec = recall_score(all_labels, preds, zero_division=0)
         
-        results.append({'threshold': t, 'f1': f1, 'precision': prec, 'recall': rec})
+        results.append({'threshold': t, 'f1': f1, 'f2': f2, 'precision': prec, 'recall': rec})
         
-        if f1 > best_f1:
-            best_f1 = f1
+        # Target F2 Score for Recall Bias
+        if f2 > best_f1:
+            best_f1 = f2
             best_thresh = t
 
     res_df = pd.DataFrame(results)
-    print(f"\n🏆 Global Maximum F1: {best_f1:.4f} at Threshold: {best_thresh:.4f}")
+    print(f"\n🏆 Global Maximum F2: {best_f1:.4f} at Threshold: {best_thresh:.4f}")
+    print(f"   -> Matching F1: {f1_score(all_labels, (all_probs >= best_thresh).astype(int), zero_division=0):.4f}")
     
     # Detailed final report at best threshold
     best_preds = (all_probs >= best_thresh).astype(int)
@@ -88,7 +91,8 @@ def optimize(data_dir, model_path, output_plot="experiments/phase4_temporal/pr_c
 
     # 4. Visualization
     plt.figure(figsize=(10, 6))
-    plt.plot(res_df['threshold'], res_df['f1'], label='F1-Score', color='blue', lw=2)
+    plt.plot(res_df['threshold'], res_df['f1'], label='F1-Score', color='blue', alpha=0.5)
+    plt.plot(res_df['threshold'], res_df['f2'], label='F2-Score (Target)', color='green', lw=2)
     plt.plot(res_df['threshold'], res_df['precision'], label='Precision', linestyle='--', alpha=0.7)
     plt.plot(res_df['threshold'], res_df['recall'], label='Recall', linestyle='--', alpha=0.7)
     plt.axvline(best_thresh, color='red', linestyle=':', label=f'Best Thresh: {best_thresh:.2f}')

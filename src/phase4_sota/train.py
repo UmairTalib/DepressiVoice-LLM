@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
+from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score, fbeta_score
 import numpy as np
 import argparse
 from tqdm import tqdm
@@ -12,6 +12,25 @@ import pandas as pd
 # Import your model and dataset
 from src.phase4_sota.dataset import TemporalDataset, pad_collate
 from src.phase4_sota.models import ImprovedLSTMAggregator, CrossModalTransformerAggregator, FocalLoss
+
+class LinearWarmupScheduler:
+    def __init__(self, optimizer, warmup_epochs, base_scheduler):
+        self.optimizer = optimizer
+        self.warmup_epochs = warmup_epochs
+        self.base_scheduler = base_scheduler
+        self.last_epoch = 0
+        
+    def step(self):
+        self.last_epoch += 1
+        if self.last_epoch <= self.warmup_epochs:
+            lr = (self.last_epoch / self.warmup_epochs) * self.base_scheduler.get_last_lr()[0]
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
+        else:
+            self.base_scheduler.step()
+            
+    def get_last_lr(self):
+        return [self.optimizer.param_groups[0]['lr']]
 
 def train_phase4(
     data_dir,
@@ -43,7 +62,7 @@ def train_phase4(
         train_ids, dev_ids = all_ids[:int(0.8*len(all_ids))], all_ids[int(0.8*len(all_ids)):]
     
     # 2. Datasets
-    train_ds = TemporalDataset(data_dir, split_ids=train_ids, augment=True)
+    train_ds = TemporalDataset(data_dir, split_ids=train_ids, augment=True, balance=True)
     dev_ds = TemporalDataset(data_dir, split_ids=dev_ids, augment=False)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=pad_collate)
     dev_loader = DataLoader(dev_ds, batch_size=batch_size, shuffle=False, collate_fn=pad_collate)
@@ -61,8 +80,9 @@ def train_phase4(
     criterion_reg = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
-    # Scheduler: Cosine Annealing
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # Scheduler: Cosine Annealing with Linear Warmup
+    base_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    scheduler = LinearWarmupScheduler(optimizer, warmup_epochs=5, base_scheduler=base_scheduler)
     
     # Early Stopping state
     best_metric = 0.0
@@ -147,8 +167,9 @@ def evaluate(model, loader, device):
     
     preds = [1 if p > 0.5 else 0 for p in all_probs]
     f1 = f1_score(all_labels, preds, zero_division=0)
+    f2 = fbeta_score(all_labels, preds, beta=2, zero_division=0)
     
-    return {'auc': auc, 'f1': f1, 'rmse': rmse, 'probs': all_probs, 'labels': all_labels}
+    return {'auc': auc, 'f1': f1, 'f2': f2, 'rmse': rmse, 'probs': all_probs, 'labels': all_labels}
 
 def optimize_threshold(model, loader, device):
     metrics = evaluate(model, loader, device)
@@ -159,12 +180,16 @@ def optimize_threshold(model, loader, device):
     for t in thresholds:
         preds = (probs >= t).astype(int)
         f1 = f1_score(labels, preds, zero_division=0)
+        f2 = fbeta_score(labels, preds, beta=2, zero_division=0)
         rec = recall_score(labels, preds, zero_division=0)
-        if f1 > best_f1:
-            best_f1, best_thresh, best_recall = f1, t, rec
+        
+        # Target F2 Score for Recall Bias
+        if f2 > best_f1:
+            best_f1, best_thresh, best_recall = f2, t, rec
             
-    print(f"✅ Optimal Threshold Found: {best_thresh:.4f}")
-    print(f"   -> F1 Score: {best_f1:.4f}")
+    print(f"✅ Optimal Threshold Found (F2-Optimized): {best_thresh:.4f}")
+    print(f"   -> F2 Score: {best_f1:.4f}")
+    print(f"   -> F1 Score: {f1_score(labels, (probs >= best_thresh).astype(int), zero_division=0):.4f}")
     print(f"   -> Recall:   {best_recall:.4f}")
     print(f"   -> Val RMSE: {metrics['rmse']:.4f}")
     
