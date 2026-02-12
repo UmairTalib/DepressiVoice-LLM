@@ -23,14 +23,13 @@ pip install -r requirements_phase1.txt
 
 ## 📋 Project Phases
 
-| Phase | Status | Description | Guide |
-|-------|--------|-------------|-------|
+| Phase | Status | Description | Report |
+|-------|--------|-------------|--------|
 | **Phase 1** | ✅ Complete | Speaker diarization & transcription | [README_PHASE1.md](docs/README_PHASE1.md) |
 | **Phase 2** | ✅ Complete | WavLM-Large (Audio) + Mental-RoBERTa (Text) | [README_PHASE2.md](docs/README_PHASE2.md) |
-| **Phase 3** | ✅ Complete | Multimodal fusion (v10 Baseline) | [v9 Report](docs/reports/PHASE3_V9_COATTENTION_REPORT.pdf) |
-| **Phase 3.5**| ✅ Complete | Bidirectional Gated Fusion (v11) | [v11 Report](docs/reports/PHASE3_5_TECHNICAL_REPORT_V11.pdf) |
-| **Phase 4** | ✅ Complete | MTL Transformer Diagnostic Engine | [Final Report](docs/reports/PHASE4_TECHNICAL_REPORT_V7.pdf) |
-| **Phase 5** | ✅ Complete | Clinical Reasoning & Gemini Narratives | [Final Report](docs/reports/PHASE5_REPORT_FINAL.pdf) |
+| **Phase 3** | ✅ Complete | Gated Multimodal Fusion (v11-PRO) | [Technical Report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf) |
+| **Phase 4** | ✅ Complete | Session-Level Temporal Aggregation | [Technical Report](docs/reports/PHASE4_TECHNICAL_REPORT_V7.pdf) |
+| **Phase 5** | ✅ Complete | Clinical Reasoning & Gemini Narratives | [Technical Report](docs/reports/PHASE5_REPORT_FINAL.pdf) |
 | **Phase 6** | ✅ Complete | Research Dashboard & Visualization | [src/phase6_dashboard/](src/phase6_dashboard/) |
 
 ---
@@ -43,31 +42,58 @@ DepressiVoice-LLM/
 │   ├── phase1/                 # Diarization & Transcription ✅
 │   ├── phase2_audio/           # Audio feature extraction ✅
 │   ├── phase2_text/            # Text embedding extraction ✅
-│   ├── phase3_fusion_v11/      # Gated Multimodal Fusion (v11) ✅
-│   ├── phase4_temporal/        # Transformer & MTL models ✅
+│   ├── phase3/                 # Gated Multimodal Fusion (v11-PRO) ✅
+│   ├── phase3_validation/      # 4-pillar validation framework ✅
+│   ├── phase4_temporal/        # Session-level Transformer ✅
 │   ├── phase5_llm/             # Gemini reasoning & explanations ✅
 │   └── phase6_dashboard/       # Streamlit Research Dashboard ✅
 │
+├── scripts/
+│   ├── phase3/                 # Final training scripts ✅
+│   └── phase3_legacy/          # Historical experiments (archived)
+│
 ├── docs/
 │   ├── reports/
-│   │   ├── PHASE3_5_TECHNICAL_REPORT_V11.pdf
-│   │   ├── PHASE4_TECHNICAL_REPORT_V7.pdf
-│   │   └── PHASE5_REPORT_FINAL.pdf
-│   └── plots/                  # Specialized diagnostic visualizations
+│   │   ├── PHASE3_MULTIMODAL_FUSION_REPORT.pdf  # Phase 3 Final
+│   │   ├── Phase4_Technical_Report.pdf
+│   │   └── Phase5_Report.pdf
+│   └── archive/                # Historical reports
 ```
 
 ---
 
-## 🔬 Phase 4: MTL Diagnostic Engine (✅ Complete)
+## 🔬 Phase 3: Gated Multimodal Fusion (✅ Complete)
 
-**Goal:** Aggregate session-level sequences using Cross-Modal Transformers and clinical severity supervision.
+**Goal:** Optimally fuse audio prosody and textual semantics at window-level using attention mechanisms.
 
-- **Architecture:** 4-Head Cross-Modal Transformer + Multi-Task Regression Head.
-- **Key Innovation:** **Multi-Task Learning (MTL)**. By predicting PHQ-8 severity simultaneously with binary labels, the model achieved a massive precision breakthrough.
+- **Final Architecture:** v11-PRO with Gated Multimodal Unit (GMU) + Multi-Task Learning
+- **Innovation:** 
+  - Cross-modal attention with dynamic gating
+  - Orthogonal loss for modality diversity (λ=0.1)
+  - PHQ-8 symptom anchoring via MTL (λ=0.5)
+- **Performance:**
+    - ✅ **Window-level AUC:** 0.659
+    - ✅ **F1-Score:** 0.40
+    - ✅ **Audio-only AUC:** 0.633 (proves vocal biomarkers work)
+    - ✅ **Text-only AUC:** 0.503 (proves no interviewer bias)
+- **Validation:** Comprehensive 4-pillar framework
+  - Pillar 1: Statistical Robustness
+  - Pillar 2: Clinical Integrity (no interviewer leakage)
+  - Pillar 3: Clinical Reliability (calibration + symptom correlations)
+  - Pillar 4: Multimodal Synergy (ablation studies)
+- **Documentation:** [Phase 3 Technical Report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf)
+
+---
+
+## 🔬 Phase 4: Session-Level Temporal Aggregation (✅ Complete)
+
+**Goal:** Aggregate window-level predictions to session-level using temporal context.
+
+- **Architecture:** Transformer-based sequence modeling + MTL
 - **Results:**
-    - ✅ **AUC:** 0.6326
-    - ✅ **Max F1:** 0.4348
-    - ✅ **Precision:** 0.4545 (SOTA for session-level)
+    - ✅ **Session AUC:** 0.636
+    - ✅ **F1-Score:** 0.41
+    - ✅ **Precision:** 0.32
 - **Documentation:** [Phase 4 Technical Report](docs/reports/PHASE4_TECHNICAL_REPORT_V7.pdf)
 
 ---

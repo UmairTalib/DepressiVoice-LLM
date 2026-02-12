@@ -20,4 +20,6 @@ clinical_report_*.pdf
 rsync_upload.log
 
 # OS
-.DS_Store
+.DS_Storestreamlit_pid*.txt
+*.pyc
+__pycache__/

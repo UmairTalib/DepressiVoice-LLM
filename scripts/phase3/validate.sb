@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --job-name=v11_VAL
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --time=01:00:00
+#SBATCH --output=experiments/phase3_final_validation/slurm_%j.out
+#SBATCH --error=experiments/phase3_final_validation/slurm_%j.err
+
+cd ~/DepressiVoice-LLM
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null || source $CONDA_PREFIX/etc/profile.d/conda.sh 2>/dev/null
+conda activate depressivoice-phase1
+
+mkdir -p experiments/phase3_final_validation
+
+python3 src/phase3_validation/validate_pro.py \
+    --root_dir ./ \
+    --model_path experiments/v11_PRO/best_model_max.pt \
+    --labels_csv data/01_raw/detailed_lables.csv \
+    --output_dir experiments/phase3_final_validation
+
+echo "✅ Comprehensive Validation Complete."

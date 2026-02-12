@@ -1,0 +1,37 @@
+#!/bin/bash
+#SBATCH --job-name=fusion_v10_REVISED_v2
+#SBATCH --output=experiments/fusion_v10_REVISED_v2/slurm_%j.out
+#SBATCH --error=experiments/fusion_v10_REVISED_v2/slurm_%j.err
+#SBATCH --partition=gpu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:1
+#SBATCH --mem=32G
+#SBATCH --time=04:00:00
+
+# Load modules and activate environment
+module load miniconda3/4.9.2
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null || source $CONDA_PREFIX/etc/profile.d/conda.sh 2>/dev/null
+conda activate depressivoice-phase1
+
+cd /home/g755389/DepressiVoice-LLM
+
+mkdir -p experiments/fusion_v10_REVISED_v2
+
+echo "🚀 Training Optimized Fusion V10 (BASELINE v2) with REVISED Labels"
+
+python3 src/phase3_fusion/train.py \
+    --audio_dir /home/g755389/DepressiVoice-LLM/data/phase2_clean/audio_embeddings_normalized/ \
+    --text_dir /home/g755389/DepressiVoice-LLM/data/phase2_clean/text_embeddings_clean/ \
+    --labels_csv /home/g755389/DepressiVoice-LLM/data/01_raw/detailed_lables_REVISED.csv \
+    --leakage_json /home/g755389/DepressiVoice-LLM/docs/reports/ellie_leakage_audit.json \
+    --output_dir experiments/fusion_v10_REVISED_v2 \
+    --epochs 100 \
+    --dropout 0.45 \
+    --pos_weight 2.4 \
+    --lr 5e-5 \
+    --weight_decay 0.05 \
+    --seed 42
+
+echo "✅ Training Complete."
