@@ -57,11 +57,17 @@ def train_phase4(
         model_name = "best_mtl_transformer.pth"
     
     # Loss Functions
-    criterion_cls = FocalLoss(alpha=0.75, gamma=2.0) 
+    criterion_cls = FocalLoss(alpha=0.85, gamma=2.0) 
     criterion_reg = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
+    # Scheduler: Cosine Annealing
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    
+    # Early Stopping state
     best_metric = 0.0
+    patience_counter = 0
+    patience = 15
     
     # 4. Training Loop
     for epoch in range(epochs):
@@ -79,8 +85,8 @@ def train_phase4(
             loss_cls = criterion_cls(logits, labels)
             loss_reg = criterion_reg(severity, phq_target)
             
-            # Joint Loss: Focal + 0.5 * MSE
-            loss = loss_cls + (0.5 * loss_reg)
+            # Joint Loss: Focal + 0.2 * MSE (Focused on Classification)
+            loss = loss_cls + (0.2 * loss_reg)
             
             loss.backward()
             optimizer.step()
@@ -88,12 +94,21 @@ def train_phase4(
             
         avg_loss = train_loss / len(train_loader)
         metrics = evaluate(model, dev_loader, device)
-        print(f"Epoch {epoch+1} | Loss: {avg_loss:.4f} | Val AUC: {metrics['auc']:.4f} | RMSE: {metrics['rmse']:.4f}")
+        scheduler.step()
         
-        # Save based on AUC (overall depression detection quality)
+        print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f} | Val AUC: {metrics['auc']:.4f} | RMSE: {metrics['rmse']:.4f} | LR: {optimizer.param_groups[0]['lr']:.6f}")
+        
+        # Save & Early Stopping based on AUC
         if metrics['auc'] > best_metric:
             best_metric = metrics['auc']
+            patience_counter = 0
             torch.save(model.state_dict(), os.path.join(output_dir, model_name))
+            print(f"🌟 New Best AUC: {best_metric:.4f} - Model Saved")
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"🛑 Early Stopping triggered at epoch {epoch+1}")
+                break
             
     print("\n🏆 Training Complete.")
     print("------------------------------------------------")
@@ -161,7 +176,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="data/phase4_sota_features")
     parser.add_argument("--output_dir", type=str, default="experiments/phase4_v11_PRO_SOTA")
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--model_type", type=str, default="transformer", choices=["lstm", "transformer"])
     args = parser.parse_args()
