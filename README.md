@@ -62,6 +62,36 @@ DepressiVoice-LLM/
 
 ---
 
+## 🔬 Phase 1: Speaker Diarization & Transcription (✅ Complete)
+
+**Goal:** Separate patient and interviewer speech with biometric-quality diarization.
+
+- **Technology:** pyannote.audio 3.0 + Whisper Large-v3
+- **Innovation:** Patient-specific voiceprint enrollment for zero leakage
+- **Performance:**
+    - ✅ **Diarization Error Rate (DER):** 4.2%
+    - ✅ **Word Error Rate (WER):** ~12%
+    - ✅ **100% interviewer removal** (surgical masking)
+- **Documentation:** [README_PHASE1.md](docs/README_PHASE1.md), [Phase 1 Technical Report](docs/reports/Phase1_Technical_Report.pdf)
+
+---
+
+## 🔬 Phase 2: Multimodal Feature Extraction (✅ Complete)
+
+**Goal:** Extract high-quality audio and text embeddings from diarized interviews.
+
+- **Audio Pipeline:**
+  - Model: WavLM-Large (Microsoft, 1024-D embeddings)
+  - Windowing: 8-second windows, 2-second stride
+  - Normalization: Session-level Z-score (prevents volume bias)
+- **Text Pipeline:**
+  - Model: Mental-RoBERTa (768-D, fine-tuned on mental health forums)
+  - Extraction: CLS token per window
+  - Quality: 100% interviewer speech removed
+- **Documentation:** [README_PHASE2.md](docs/README_PHASE2.md), [Phase 2 Technical Report](docs/reports/Phase2_Technical_Report.pdf)
+
+---
+
 ## 🔬 Phase 3: Gated Multimodal Fusion (✅ Complete)
 
 **Goal:** Optimally fuse audio prosody and textual semantics at window-level using attention mechanisms.
