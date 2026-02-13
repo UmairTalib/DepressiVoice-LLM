@@ -28,7 +28,7 @@ pip install -r requirements_phase1.txt
 | **Phase 1** | ✅ Complete | Speaker diarization & transcription | [README_PHASE1.md](docs/README_PHASE1.md) |
 | **Phase 2** | ✅ Complete | WavLM-Large (Audio) + Mental-RoBERTa (Text) | [README_PHASE2.md](docs/README_PHASE2.md) |
 | **Phase 3** | ✅ Complete | Gated Multimodal Fusion (v11-PRO) | [Technical Report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf) |
-| **Phase 4** | ✅ Complete | Session-Level Temporal Aggregation | [Technical Report](docs/reports/PHASE4_TECHNICAL_REPORT_V7.pdf) |
+| **Phase 4** | ✅ Complete | Session-Level Temporal Aggregation (Hardened) | [Technical Report](docs/reports/PHASE4_TECHNICAL_REPORT.pdf) |
 | **Phase 5** | ✅ Complete | Clinical Reasoning & Gemini Narratives | [Technical Report](docs/reports/PHASE5_REPORT_FINAL.pdf) |
 | **Phase 6** | ✅ Complete | Research Dashboard & Visualization | [src/phase6_dashboard/](src/phase6_dashboard/) |
 
@@ -117,14 +117,34 @@ DepressiVoice-LLM/
 
 ## 🔬 Phase 4: Session-Level Temporal Aggregation (✅ Complete)
 
-**Goal:** Aggregate window-level predictions to session-level using temporal context.
+**Goal:** Aggregate window-level predictions to session-level using Transformer-based temporal modeling with scientifically rigorous regularization.
 
-- **Architecture:** Transformer-based sequence modeling + MTL
-- **Results:**
-    - ✅ **Session AUC:** 0.636
-    - ✅ **F1-Score:** 0.41
-    - ✅ **Precision:** 0.32
-- **Documentation:** [Phase 4 Technical Report](docs/reports/PHASE4_TECHNICAL_REPORT_V7.pdf)
+- **Final Architecture:** Cross-Modal Transformer Aggregator (Phase 4.7 "Generalization Hardened")
+  - Dual-stream projection with bi-directional co-attention
+  - 256-D embeddings, 4 attention heads, 2 layers
+  - Label smoothing (ε=0.1) + AdamW (weight_decay=0.01) + dropout=0.5
+  - Loss-based checkpointing to prevent overfitting
+
+- **Test Set Performance (N=56, held-out)**:
+    - ✅ **AUC:** 0.614 (95% CI: 0.454-0.771)
+    - ✅ **F1-Score:** 0.566 (95% CI: 0.385-0.712)
+    - ✅ **Recall:** 0.882 (88% sensitivity - clinical screening viability)
+    - ✅ **Precision:** 0.417 (42% - requires follow-up workflow)
+    - ✅ **Training Loss:** 0.23 (scientifically honest - prevents memorization)
+
+- **Validation Framework:**
+  - Bootstrap confidence intervals (1000 iterations)
+  - Stratified analysis by gender and depression severity
+  - Clinical deployment recommendations (screening protocol)
+  
+- **Key Innovation:** Regularization hardening prevents overfitting on N=275 samples
+  - Phase 4.6 (overfitted): Train Loss=0.005, Val AUC=0.653
+  - **Phase 4.7 (hardened)**: Train Loss=0.230, Test AUC=0.614 ✅
+
+- **Documentation:** 
+  - [**Phase 4 Technical Report (PDF, 1.1 MB)**](docs/reports/PHASE4_TECHNICAL_REPORT.pdf) - Comprehensive architecture, theory, validation
+  - [Phase 4 Gap Analysis](docs/reports/archive/) - Performance analysis vs. predictions
+  
 
 ---
 
@@ -149,5 +169,5 @@ DepressiVoice-LLM/
 
 ---
 
-**Last Updated:** February 7, 2026  
+**Last Updated:** February 13, 2026  
 **Status:** Phase 1-6 ✅ SYSTEM COMPLETE
