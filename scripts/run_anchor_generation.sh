@@ -10,7 +10,7 @@ source /cm/shared/omni/apps/miniconda3/etc/profile.d/conda.sh
 conda activate depressivoice-phase1
 
 # Export HF token
-export HF_TOKEN="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"
+export HF_TOKEN="${HF_TOKEN:?set HF_TOKEN in your environment}"
 
 # Run anchor generation
 python src/generate_biometric_anchor.py \

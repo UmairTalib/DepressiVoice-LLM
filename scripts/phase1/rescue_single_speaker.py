@@ -14,7 +14,8 @@ import soundfile as sf
 import numpy as np
 
 # Environment setup
-os.environ['HF_TOKEN'] = os.environ.get('HF_TOKEN', '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')
+if not os.environ.get('HF_TOKEN'):
+    sys.exit("HF_TOKEN is not set: export your Hugging Face token first")
 os.environ['TORCHAUDIO_BACKEND'] = 'soundfile'
 
 from pyannote.audio import Pipeline

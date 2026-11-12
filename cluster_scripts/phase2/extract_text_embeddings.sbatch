@@ -20,7 +20,7 @@ INPUT_DIR="$PROJECT_ROOT/phase1_rerun_outputs"
 OUTPUT_DIR="$PROJECT_ROOT/data/phase2_clean/text_embeddings_clean"
 SCRIPT_PATH="$PROJECT_ROOT/src/phase2_text/extract_embeddings.py"
 
-export HF_TOKEN="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"
+export HF_TOKEN="${HF_TOKEN:?set HF_TOKEN in your environment}"
 export HF_HOME="$PROJECT_ROOT/.cache/huggingface"
 
 # Get session ID from array

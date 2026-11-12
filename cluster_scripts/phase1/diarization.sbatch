@@ -17,7 +17,7 @@ source /cm/shared/omni/apps/miniconda3/etc/profile.d/conda.sh
 conda activate depressivoice-phase1
 
 # Environment Variables
-export HF_TOKEN="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"
+export HF_TOKEN="${HF_TOKEN:?set HF_TOKEN in your environment}"
 export TORCHAUDIO_BACKEND="soundfile"
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 

@@ -9,7 +9,7 @@
 
 cd ~/DepressiVoice-LLM
 export PYTHONPATH=$PYTHONPATH:.
-export GEMINI_API_KEY="AIzaSyBcq_pMAGs3u3JV0LEOfggMYantKqQfo6k"
+export GEMINI_API_KEY="${GEMINI_API_KEY:?set GEMINI_API_KEY in your environment}"
 export PYTHONUNBUFFERED=1
 
 # Diagnostics

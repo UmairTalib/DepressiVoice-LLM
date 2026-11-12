@@ -8,7 +8,7 @@ import numpy as np
 import google.generativeai as genai
 
 # API Key (Read from Environment)
-API_KEY = os.getenv("GEMINI_API_KEY") or "AIzaSyBcq_pMAGs3u3JV0LEOfggMYantKqQfo6k"
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 # ==========================================
 # ⚙️ CONFIGURATION

@@ -130,7 +130,7 @@ Confidence based on **separation margin** = `similarity(ELLIE) - similarity(PATI
 
 **Environment Variables:**
 ```bash
-export HF_TOKEN="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"
+export HF_TOKEN="hf_YOUR_TOKEN_HERE"
 export TORCHAUDIO_BACKEND="soundfile"
 ```
 
