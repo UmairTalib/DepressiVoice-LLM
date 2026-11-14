@@ -1,173 +1,92 @@
 # DepressiVoice-LLM
 
-**Depression Detection from Clinical Interview Audio**
+**Screening for elevated depressive symptoms from clinical interview recordings, using speech and text**
 
-Multi-phase pipeline for detecting depression from audio recordings of clinical interviews using multimodal AI (audio biomarkers + text semantics).
+A research project in the module Project Work at the Chair for Embedded Systems, University of Siegen (April 2025 to March 2026), carried out by Umair Talib with one co-author. The diarization, transcription and feature extraction pipeline and its window-level results are described in a paper at CoDIT 2026, published by IEEE (see [Publication](#publication)).
+
+> **Research prototype, not a medical device.** The code was written for a university project and is not clinically validated. The target label is a PHQ-8 score of 10 or more, a common screening cut-off for elevated depressive symptoms. It is not a diagnosis, and the model must not be used to diagnose anyone.
 
 ---
 
-## 🚀 Quick Start
+## Results at a glance
+
+| What was measured | Result | Source |
+| --- | --- | --- |
+| Interviewer contamination in participant transcripts, before and after the text filter | 14.18% → 1.09% | Paper |
+| Diarization error rate (DER) and word error rate (WER) | 4.2% and 12.0% | Paper |
+| Window-level ROC-AUC on the validation set in the Phase 3 ablation: fusion, audio only, text only | 0.659, 0.633, 0.503 | Paper, [Phase 3 report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf) |
+| Session-level ROC-AUC on the held-out test set (56 participants: 17 with PHQ-8 of 10 or more, 39 below) | 0.614 (95% CI 0.454 to 0.771) | [Phase 4 report](docs/reports/PHASE4_TECHNICAL_REPORT.pdf) |
+| F1 on the same test set | 0.566 (95% CI 0.385 to 0.712) | Phase 4 report |
+| Recall, precision and specificity on the same test set, at a threshold of 0.160 chosen on the validation set | 88.2% (15 of 17), 41.7% (15 of 36), 46.2% (18 of 39) | Phase 4 report |
+
+How to read these numbers:
+
+- The text filter lowered interviewer contamination to 1.09%. It did not remove interviewer speech completely.
+- The 95% confidence interval of the test ROC-AUC includes 0.5. With 56 test participants, the test cannot rule out chance-level ranking.
+- The model flags most participants above the cut-off, but also 21 of the 39 below it. Any screening use would need a follow-up assessment by a clinician.
+- Text alone scores near chance at the window level (0.503), probably because an 8-second window holds only a few words.
+
+---
+
+## Pipeline
+
+| Phase | What it does | Documentation |
+| --- | --- | --- |
+| 1 | Speaker diarization with pyannote.audio 3.1, interviewer identification with a voiceprint (biometric anchor), participant selection by speaking time, transcription with Faster-Whisper large-v3, and a text filter that drops participant segments containing known interviewer prompts | [Phase 1 guide](docs/README_PHASE1.md), [Phase 1 report](docs/reports/Phase1_Technical_Report.pdf) |
+| 2 | Audio embeddings with WavLM-Large and text embeddings with Mental-RoBERTa, on 8-second windows | [Phase 2 guide](docs/README_PHASE2.md), [Phase 2 report](docs/reports/Phase2_Technical_Report.pdf) |
+| 3 | Window-level gated multimodal fusion (GMU) with multi-task learning on the PHQ-8 items | [Phase 3 report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf) |
+| 4 | Session-level cross-modal Transformer that aggregates the windows of one interview | [Phase 4 report](docs/reports/PHASE4_TECHNICAL_REPORT.pdf) |
+| 5 | Text explanations generated with the Gemini API from the attention-based evidence of the Phase 4 model | [Phase 5 report](docs/reports/PHASE5_REPORT_FINAL.pdf) |
+| 6 | Streamlit research dashboard to browse predictions, gate values and explanations | [`src/phase6_dashboard/`](src/phase6_dashboard/) |
+
+Transcribing the 34.1 hours of interview audio took about 2.5 hours on 10 GPU nodes of the University of Siegen HPC cluster, scheduled with SLURM.
+
+---
+
+## Repository layout
+
+```text
+src/
+  phase1/             diarization and transcription
+  phase2_audio/       WavLM audio features
+  phase2_text/        Mental-RoBERTa text embeddings
+  phase3/             window-level gated fusion (final version)
+  phase4_temporal/    session-level Transformer
+  phase5_llm/         LLM text explanations
+  phase6_dashboard/   Streamlit dashboard
+  validation/         validation scripts
+scripts/, cluster_scripts/   SLURM jobs and helper scripts
+docs/                 phase guides, handover notes and technical reports (docs/reports/)
+```
+
+Other folders under `src/` and `scripts/`, such as `phase3_legacy/` and `phase4_sota/`, hold earlier iterations.
+
+---
+
+## Getting started
 
 ```bash
-# Clone repository
 git clone https://github.com/UmairTalib/DepressiVoice-LLM.git
 cd DepressiVoice-LLM
-
-# Phase 1: Diarization & Transcription
-conda create -n depressivoice-phase1 python=3.10 -y
-conda activate depressivoice-phase1
-pip install -r requirements_phase1.txt
+conda create -n depressivoice python=3.10 -y
+conda activate depressivoice
+pip install -r requirements.txt
 ```
 
----
-
-## 📋 Project Phases
-
-| Phase | Status | Description | Report |
-|-------|--------|-------------|--------|
-| **Phase 1** | ✅ Complete | Speaker diarization & transcription | [README_PHASE1.md](docs/README_PHASE1.md) |
-| **Phase 2** | ✅ Complete | WavLM-Large (Audio) + Mental-RoBERTa (Text) | [README_PHASE2.md](docs/README_PHASE2.md) |
-| **Phase 3** | ✅ Complete | Gated Multimodal Fusion (v11-PRO) | [Technical Report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf) |
-| **Phase 4** | ✅ Complete | Session-Level Temporal Aggregation (Hardened) | [Technical Report](docs/reports/PHASE4_TECHNICAL_REPORT.pdf) |
-| **Phase 5** | ✅ Complete | Clinical Reasoning & Gemini Narratives | [Technical Report](docs/reports/PHASE5_REPORT_FINAL.pdf) |
-| **Phase 6** | ✅ Complete | Research Dashboard & Visualization | [src/phase6_dashboard/](src/phase6_dashboard/) |
+Phase 1 reads a Hugging Face access token from the `HF_TOKEN` environment variable, and Phase 5 reads a Gemini API key from `GEMINI_API_KEY`. Keep keys out of the code. The phase guides list the exact package versions and the SLURM jobs: [Phase 1](docs/README_PHASE1.md) and [Phase 2](docs/README_PHASE2.md).
 
 ---
 
-## 📁 Repository Structure
+## Data
 
-```
-DepressiVoice-LLM/
-├── src/
-│   ├── phase1/                 # Diarization & Transcription ✅
-│   ├── phase2_audio/           # Audio feature extraction ✅
-│   ├── phase2_text/            # Text embedding extraction ✅
-│   ├── phase3/                 # Gated Multimodal Fusion (v11-PRO) ✅
-│   ├── phase3_validation/      # 4-pillar validation framework ✅
-│   ├── phase4_temporal/        # Session-level Transformer ✅
-│   ├── phase5_llm/             # Gemini reasoning & explanations ✅
-│   └── phase6_dashboard/       # Streamlit Research Dashboard ✅
-│
-├── scripts/
-│   ├── phase3/                 # Final training scripts ✅
-│   └── phase3_legacy/          # Historical experiments (archived)
-│
-├── docs/
-│   ├── reports/
-│   │   ├── PHASE3_MULTIMODAL_FUSION_REPORT.pdf  # Phase 3 Final
-│   │   ├── Phase4_Technical_Report.pdf
-│   │   └── Phase5_Report.pdf
-│   └── archive/                # Historical reports
-```
+The project uses the Extended Distress Analysis Interview Corpus (E-DAIC), which USC ICT distributes to academic and non-profit researchers under an agreement. The audio and transcripts are not part of this repository. To rerun the pipeline, you need your own access to the corpus.
 
 ---
 
-## 🔬 Phase 1: Speaker Diarization & Transcription (✅ Complete)
+## Publication
 
-**Goal:** Separate patient and interviewer speech with biometric-quality diarization.
-
-- **Technology:** pyannote.audio 3.0 + Whisper Large-v3
-- **Innovation:** Patient-specific voiceprint enrollment for zero leakage
-- **Performance:**
-    - ✅ **Diarization Error Rate (DER):** 4.2%
-    - ✅ **Word Error Rate (WER):** ~12%
-    - ✅ **100% interviewer removal** (surgical masking)
-- **Documentation:** [README_PHASE1.md](docs/README_PHASE1.md), [Phase 1 Technical Report](docs/reports/Phase1_Technical_Report.pdf)
+U. Oleh, U. Talib, M. A. Alam, and R. Obermaisser, "Leakage-Resilient Diarization and Feature Extraction Framework for Robust Multimodal Mental Health Corpora," in *Proc. 12th Int. Conf. Control, Decision and Information Technologies (CoDIT)*, Bari, Italy, Jul. 2026, pp. 2508–2512, doi: [10.1109/CoDIT70676.2026.11630977](https://doi.org/10.1109/CoDIT70676.2026.11630977).
 
 ---
 
-## 🔬 Phase 2: Multimodal Feature Extraction (✅ Complete)
-
-**Goal:** Extract high-quality audio and text embeddings from diarized interviews.
-
-- **Audio Pipeline:**
-  - Model: WavLM-Large (Microsoft, 1024-D embeddings)
-  - Windowing: 8-second windows, 2-second stride
-  - Normalization: Session-level Z-score (prevents volume bias)
-- **Text Pipeline:**
-  - Model: Mental-RoBERTa (768-D, fine-tuned on mental health forums)
-  - Extraction: CLS token per window
-  - Quality: 100% interviewer speech removed
-- **Documentation:** [README_PHASE2.md](docs/README_PHASE2.md), [Phase 2 Technical Report](docs/reports/Phase2_Technical_Report.pdf)
-
----
-
-## 🔬 Phase 3: Gated Multimodal Fusion (✅ Complete)
-
-**Goal:** Optimally fuse audio prosody and textual semantics at window-level using attention mechanisms.
-
-- **Final Architecture:** v11-PRO with Gated Multimodal Unit (GMU) + Multi-Task Learning
-- **Innovation:** 
-  - Cross-modal attention with dynamic gating
-  - Orthogonal loss for modality diversity (λ=0.1)
-  - PHQ-8 symptom anchoring via MTL (λ=0.5)
-- **Performance:**
-    - ✅ **Window-level AUC:** 0.659
-    - ✅ **F1-Score:** 0.40
-    - ✅ **Audio-only AUC:** 0.633 (proves vocal biomarkers work)
-    - ✅ **Text-only AUC:** 0.503 (proves no interviewer bias)
-- **Validation:** Comprehensive 4-pillar framework
-  - Pillar 1: Statistical Robustness
-  - Pillar 2: Clinical Integrity (no interviewer leakage)
-  - Pillar 3: Clinical Reliability (calibration + symptom correlations)
-  - Pillar 4: Multimodal Synergy (ablation studies)
-- **Documentation:** [Phase 3 Technical Report](docs/reports/PHASE3_MULTIMODAL_FUSION_REPORT.pdf)
-
----
-
-## 🔬 Phase 4: Session-Level Temporal Aggregation (✅ Complete)
-
-**Goal:** Aggregate window-level predictions to session-level using Transformer-based temporal modeling with scientifically rigorous regularization.
-
-- **Final Architecture:** Cross-Modal Transformer Aggregator (Phase 4.7 "Generalization Hardened")
-  - Dual-stream projection with bi-directional co-attention
-  - 256-D embeddings, 4 attention heads, 2 layers
-  - Label smoothing (ε=0.1) + AdamW (weight_decay=0.01) + dropout=0.5
-  - Loss-based checkpointing to prevent overfitting
-
-- **Test Set Performance (N=56, held-out)**:
-    - ✅ **AUC:** 0.614 (95% CI: 0.454-0.771)
-    - ✅ **F1-Score:** 0.566 (95% CI: 0.385-0.712)
-    - ✅ **Recall:** 0.882 (88% sensitivity - clinical screening viability)
-    - ✅ **Precision:** 0.417 (42% - requires follow-up workflow)
-    - ✅ **Training Loss:** 0.23 (scientifically honest - prevents memorization)
-
-- **Validation Framework:**
-  - Bootstrap confidence intervals (1000 iterations)
-  - Stratified analysis by gender and depression severity
-  - Clinical deployment recommendations (screening protocol)
-  
-- **Key Innovation:** Regularization hardening prevents overfitting on N=275 samples
-  - Phase 4.6 (overfitted): Train Loss=0.005, Val AUC=0.653
-  - **Phase 4.7 (hardened)**: Train Loss=0.230, Test AUC=0.614 ✅
-
-- **Documentation:** 
-  - [**Phase 4 Technical Report (PDF, 1.1 MB)**](docs/reports/PHASE4_TECHNICAL_REPORT.pdf) - Comprehensive architecture, theory, validation
-  - [Phase 4 Gap Analysis](docs/reports/archive/) - Performance analysis vs. predictions
-  
-
----
-
-## 🤖 Phase 5: Clinical Reasoning & Gemini Narratives (✅ Complete)
-
-**Goal:** Provide "Glass Box" clinical transparency using High-Reasoning LLMs.
-
-- **Technology:** `gemini-3-pro-preview` with Thinking enabled.
-- **Key Features:**
-    - **Attention Rollout Calibration**: Extracting spikes from the Transformer to ground AI decisions.
-    - **Psychiatrist Persona**: Calibrated clinical narratives synthesizing audio dissonance and textual cues.
-- **Documentation:** [Phase 5 Technical Report](docs/reports/PHASE5_REPORT_FINAL.pdf)
-
----
-
-## 📊 Phase 6: Research Dashboard (✅ Complete)
-
-**Goal:** Provide an interactive interface for exploring model decisions and clinical reports.
-
-- **Technology:** Streamlit.
-- **Features**: Interactive patient selection, Gate value $(z)$ visualization, and clinical assessment display.
-
----
-
-**Last Updated:** February 13, 2026  
-**Status:** Phase 1-6 ✅ SYSTEM COMPLETE
+**Status:** all six phases were completed within the project (April 2025 to March 2026). README updated in November 2026.
