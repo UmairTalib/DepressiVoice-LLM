@@ -23,3 +23,6 @@ rsync_upload.log
 .DS_Storestreamlit_pid*.txt
 *.pyc
 __pycache__/
+
+# Per-participant prediction log (kept out of the public repository)
+data/output/explanations/summary_log.csv
