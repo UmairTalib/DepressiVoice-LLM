@@ -4,7 +4,7 @@
 
 A research project in the module Project Work at the Chair for Embedded Systems, University of Siegen (April 2025 to March 2026), carried out by Umair Talib with one co-author. The diarization, transcription and feature extraction pipeline and its window-level results are described in a paper at CoDIT 2026, published by IEEE (see [Publication](#publication)).
 
-> **Research prototype, not a medical device.** The code was written for a university project and is not clinically validated. The target label is a PHQ-8 score of 10 or more, a common screening cut-off for elevated depressive symptoms. It is not a diagnosis, and the model must not be used to diagnose anyone.
+> **Research code, not a medical device.** The code was written for a university project and is not clinically validated. The target label is a PHQ-8 score of 10 or more, a common screening cut-off for elevated depressive symptoms. It is not a diagnosis, and the model must not be used to diagnose anyone.
 
 ---
 
